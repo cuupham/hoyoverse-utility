@@ -1,61 +1,36 @@
-from helper import get_all_cookies_env, cookies_to_dict
+from helper import parse_cookies, cookies_env
 from flows.gs_flow import GsFlow
 from flows.sr_flow import SrFlow
-from flows.zzz_flow import ZzzFlow
-from concurrent.futures import ThreadPoolExecutor
-import threading
-import traceback
+from flows.zzz_flow  import ZzzFlow
 
-lock = threading.Lock()  # Để print không lộn xộn
 
-def log(msg: str):
-    """Print đồng bộ với lock."""
-    with lock:
-        print(msg)
+def process_all_checkin(cookies_value: str):
+    parsed_cookies  = parse_cookies(cookies_value)
+    gs = GsFlow(parsed_cookies)
+    sr = SrFlow(parsed_cookies)
+    zzz = ZzzFlow(parsed_cookies)
 
-def process_account(name, value):
-    try:
-        c = cookies_to_dict(value)
-        gs = GsFlow(c)
-        sr = SrFlow(c)
-        zzz = ZzzFlow(c)
+    print('[Genshin]:')
+    gs.process_checkin()
 
-        prologue = f'------ {name} ------'
-        log(prologue)
+    print('[Star Rail]:')
+    sr.process_checkin()
 
-        log('[Genshin]')
-        gs.process_checkin()
+    print('[ZZZ]:')
+    zzz.process_checkin()
 
-        log('[Star Rail]')
-        sr.process_checkin()
+def main():
+    all_cookies = cookies_env()
 
-        log('[ZZZ]')
-        zzz.process_checkin()
-
-        log(f'{len(prologue)*"-"}\n')
-
-    except RuntimeError as e:
-        log(e)
-
-    except Exception as e:
-        # In lỗi đầy đủ và gọn với traceback
-        log(f'Error processing {name}: {e}\n{traceback.format_exc()}')
-
-def process_all_checkin():
-    cookie_accounts = get_all_cookies_env()
-
-    if not cookie_accounts:
-        log('No cookies env found.')
+    if not all_cookies:
+        print("[ERROR] No cookies found")
         return
 
-    # Sử dụng ThreadPoolExecutor để giới hạn số thread đồng thời
-    # max_workers = min(5, len(cookie_accounts))  # tối đa 5 thread
-    # with ThreadPoolExecutor(max_workers=max_workers) as executor:
-    #     for name, value in cookie_accounts.items():
-    #         executor.submit(process_account, name, value)
-    
-    for name, value in cookie_accounts.items():
-        process_account(name, value)
+    for cookie_name, cookies_value in all_cookies:
+        prologue = f'------ {cookie_name} ------'
+        print(prologue)
+        process_all_checkin(cookies_value)
+        print('-' * len(prologue) + '\n')
 
 if __name__ == "__main__":
-    process_all_checkin()
+    main()

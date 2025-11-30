@@ -1,17 +1,22 @@
 class BaseFlow:
     def __init__(self, api_class, cookies: dict):
         self.api = api_class(cookies)
-
-    def is_signed(self):
-        response = self.api.info()
-        if response.get('retcode') != 0:
-            raise RuntimeError(f"An error occurred in request => {response}")
-        return response['data']['is_sign']
-
+            
     def process_checkin(self):
-        if self.is_signed():
-            print('Player has already checked in.')
+        info = self.api.info()
+        
+        retcode = info['retcode']
+        match retcode:
+            case 0:
+                is_sign = info['data']['is_sign']
+            case -10002:
+                print(info['message'])
+                return
+
+        if is_sign:
+            print('User has already checked in.')
             return
+
         response = self.api.checkin()
         print(response)
 
