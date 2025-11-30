@@ -17,7 +17,7 @@ jobs:
 
       - name: Run Python script
         env:
-          HOYOVERSE_COOKIE: ${{ secrets.HOYOVERSE_COOKIE }}
+          HOYOVERSE_COOKIE: ${{ secrets.P66720NRLORDCOM }}
         run: |
           python - <<'EOF'
           import os
