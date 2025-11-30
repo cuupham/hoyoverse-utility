@@ -3,12 +3,11 @@ import requests
 
 class CoreAPI:
 
-    # --- URL ---
     BBS_URL = 'https://bbs-api-os.hoyolab.com/community/painter/wapi'
     HK4E_URL = "https://sg-hk4e-api.hoyolab.com/event/sol"
     PUBLIC_URL = "https://sg-public-api.hoyolab.com/event/luna"
 
-    # --- HEADERS ---
+
     HEADERS_COMMON = {
         "accept": "application/json, text/plain, */*",
         "accept-language": "en-US,en;q=0.9,vi-VN;q=0.8,vi;q=0.7",
@@ -38,6 +37,12 @@ class CoreAPI:
         },
     }
 
+    ACT_ID = {
+        'gs': 'e202102251931481',
+        'sr': 'e202303301540311',
+        'zzz': 'e202406031448091',
+    }
+
     def send_get(self, endpoint, headers, cookies, params) -> dict:
         response = requests.get(url=endpoint, headers=headers, cookies=cookies, params=params)
         return response.json()
@@ -45,3 +50,4 @@ class CoreAPI:
     def send_post(self, endpoint, headers, cookies, json_data) -> dict:
         response = requests.post(url=endpoint, headers=headers, cookies=cookies, json=json_data)
         return response.json()
+    

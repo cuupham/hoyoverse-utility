@@ -17,7 +17,7 @@ class SrAPI(CoreAPI):
         cookies = self.user_cookies
         params = {
             'lang': 'en-us',
-            'act_id': 'e202303301540311',
+            'act_id': self.ACT_ID['sr'],
         }
         return self.send_get(endpoint, headers, cookies, params)
 
@@ -32,7 +32,7 @@ class SrAPI(CoreAPI):
         }
         cookies = self.user_cookies
         json_data = {
-            'act_id': 'e202303301540311',
+            'act_id': self.ACT_ID['sr'],
             'lang': 'en-us',
         }
         return self.send_post(endpoint, headers, cookies, json_data)

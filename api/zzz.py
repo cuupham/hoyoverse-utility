@@ -22,7 +22,7 @@ class ZzzAPI(CoreAPI):
         cookies = self.user_cookies
         params = {
             'lang': 'en-us',
-            'act_id': 'e202406031448091',
+            'act_id': self.ACT_ID['zzz'],
         }
         return self.send_get(endpoint, headers, cookies, params)
 
@@ -37,7 +37,7 @@ class ZzzAPI(CoreAPI):
         }
         cookies = self.user_cookies
         json_data = {
-            'act_id': 'e202406031448091',
+            'act_id': self.ACT_ID['zzz'],
             'lang': 'en-us',
         }
         return self.send_post(endpoint, headers, cookies, json_data)

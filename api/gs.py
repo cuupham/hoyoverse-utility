@@ -16,7 +16,7 @@ class GsAPI(CoreAPI):
         cookies = self.user_cookies
         params = {
             'lang': 'en-us',
-            'act_id': 'e202102251931481',
+            'act_id': self.ACT_ID['gs'],
         }
         return self.send_get(endpoint, headers, cookies, params)
 
@@ -34,7 +34,7 @@ class GsAPI(CoreAPI):
         }
         cookies = self.user_cookies
         json_data = {
-            'act_id': 'e202102251931481',
+            'act_id': self.ACT_ID['gs'],
         }
         return self.send_post(endpoint, headers, cookies, json_data)
 
