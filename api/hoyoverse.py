@@ -35,32 +35,32 @@ class HoyoverseAPI(CoreAPI):
         return self.send_get(endpoint, headers, cookies, params)
 
     # --- Helper ---
-    @staticmethod
-    def extract_act_ids(data: dict):
-        target_games = ('Genshin Impact', 'Honkai: Star Rail', 'Zenless Zone Zero')
+    # @staticmethod
+    # def extract_act_ids(data: dict):
+    #     target_games = ('Genshin Impact', 'Honkai: Star Rail', 'Zenless Zone Zero')
 
-        result = {name:None for name in target_games}
+    #     result = {name:None for name in target_games}
 
-        game_list = data.get('data', {}).get('game_list', [])
+    #     game_list = data.get('data', {}).get('game_list', [])
 
-        for game in game_list:
-            name = game.get('name')
+    #     for game in game_list:
+    #         name = game.get('name')
             
-            if name not in target_games:
-                continue
+    #         if name not in target_games:
+    #             continue
 
-            for tool in game.get('tool', []):            
-                tool_name = tool.get("name", "").lower().replace("-", "").replace(" ", "")
-                if tool_name != "checkin":
-                    continue
+    #         for tool in game.get('tool', []):            
+    #             tool_name = tool.get("name", "").lower().replace("-", "").replace(" ", "")
+    #             if tool_name != "checkin":
+    #                 continue
 
-                web_path = tool.get('web_path') or ""
-                parsed = urlparse(web_path)
-                qs = parse_qs(parsed.query)
+    #             web_path = tool.get('web_path') or ""
+    #             parsed = urlparse(web_path)
+    #             qs = parse_qs(parsed.query)
 
-                act_id_list = qs.get("act_id")
-                if act_id_list:
-                    result[name] = act_id_list[0]
-                    break
+    #             act_id_list = qs.get("act_id")
+    #             if act_id_list:
+    #                 result[name] = act_id_list[0]
+    #                 break
 
-        return result
+    #     return result

@@ -3,9 +3,9 @@ from api._core import CoreAPI
 
 class GsAPI(CoreAPI):
     
-    def __init__(self, user_cookies, act_id: str):
+    def __init__(self, user_cookies): #, act_id: str):
         super().__init__(user_cookies)
-        self.act_id = act_id
+        #self.act_id = act_id
 
     def info(self):
         endpoint = f'{self.HK4E_URL}/info'
@@ -20,7 +20,8 @@ class GsAPI(CoreAPI):
         params = {
             'lang': 'en-us',
             #'act_id': f'{self.act_id}',
-            'act_id': self.act_id,
+            #'act_id': self.act_id,
+            'act_id': 'e202102251931481',
         }
 
         return self.send_get(endpoint, headers, cookies, params)
@@ -43,7 +44,8 @@ class GsAPI(CoreAPI):
         cookies = self.user_cookies
         json_data = {
             #"act_id":f"{self.act_id}"
-            "act_id": self.act_id
+            #"act_id": self.act_id
+            'act_id': 'e202102251931481',
         }
         return self.send_post(endpoint, headers, cookies, json_data)
 

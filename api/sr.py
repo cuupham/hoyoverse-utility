@@ -3,10 +3,10 @@ from api._core import CoreAPI
 
 class SrAPI(CoreAPI):
     
-    def __init__(self, user_cookies, act_id: str):
+    def __init__(self, user_cookies): #, act_id: str):
         super().__init__(user_cookies)
         self.url = f'{self.PUBLIC_URL}/hkrpg/os'
-        self.act_id = act_id
+        #self.act_id = act_id
     
     def info(self):
         endpoint = f'{self.url}/info'
@@ -19,7 +19,8 @@ class SrAPI(CoreAPI):
         params = {
             'lang': 'en-us',
             #'act_id': f'{self.act_id}',
-            'act_id': self.act_id,
+            #'act_id': self.act_id,
+            'act_id': 'e202303301540311',
         }
         return self.send_get(endpoint, headers, cookies, params)
 
@@ -35,7 +36,8 @@ class SrAPI(CoreAPI):
         cookies = self.user_cookies
         json_data = {
             #'act_id': f'{self.act_id}',
-            'act_id': self.act_id,
+            #'act_id': self.act_id,
+            'act_id': 'e202303301540311',
             'lang': 'en-us',
         }
         return self.send_post(endpoint, headers, cookies, json_data)
