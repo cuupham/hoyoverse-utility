@@ -4,7 +4,7 @@ class BaseFlow:
             
     def process_checkin(self):
         info = self.api.info()
-        print(info)
+
         retcode = info['retcode']
         match retcode:
             case 0:
