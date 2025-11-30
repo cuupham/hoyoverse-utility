@@ -10,13 +10,13 @@ def process_all_checkin(cookies_value: str):
     sr = SrFlow(parsed_cookies)
     zzz = ZzzFlow(parsed_cookies)
 
-    print('[Genshin]:')
+    print('[Genshin]: ', end='')
     gs.process_checkin()
 
-    print('[Star Rail]:')
+    print('[Star Rail]: ', end='')
     sr.process_checkin()
 
-    print('[ZZZ]:')
+    print('[ZZZ]: ', end='')
     zzz.process_checkin()
 
 def main():
