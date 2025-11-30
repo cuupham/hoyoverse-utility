@@ -21,5 +21,7 @@ def main():
         # Nếu muốn test, có thể in 1 phần nhỏ
         print("First 50 chars:", cookie[:50])
     else:
+        print("Chưa có cookie trong env")
+        
 if __name__ == "__main__":
     main()
