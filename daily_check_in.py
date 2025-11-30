@@ -1,42 +1,55 @@
-import asyncio
 from helper import get_all_cookies_env, cookies_to_dict
 from flows.gs_flow import GsFlow
 from flows.sr_flow import SrFlow
 from flows.zzz_flow import ZzzFlow
+from concurrent.futures import ThreadPoolExecutor
+import threading
+import traceback
 
+lock = threading.Lock()  # Để print không lộn xộn
 
-async def process_account(cookie_name, cookie_values):
-    cookie_dict = cookies_to_dict(cookie_values)
-    gs_flow = GsFlow(cookie_dict)
-    sr_flow = SrFlow(cookie_dict)
-    zzz_flow = ZzzFlow(cookie_dict)
+def log(msg: str):
+    """Print đồng bộ với lock."""
+    with lock:
+        print(msg)
 
-    prologue = f"----- {cookie_name} -----"
-    print(prologue)
+def process_account(name, value):
+    try:
+        c = cookies_to_dict(value)
+        gs = GsFlow(c)
+        sr = SrFlow(c)
+        zzz = ZzzFlow(c)
 
-    loop = asyncio.get_running_loop()
+        prologue = f'------ {name} ------'
+        log(prologue)
 
-    for name, flow in [("Genshin", gs_flow), ("Star Rail", sr_flow), ("ZZZ", zzz_flow)]:
-        print(f"[{name}] Process check-in:")
-        try:
-            # Chạy process_checkin đồng bộ trong executor
-            await loop.run_in_executor(None, flow.process_checkin)
-        except Exception as e:
-            print(f"[{name}] Error: {e}")
+        log('[Genshin] Process check-in:')
+        gs.process_checkin()
 
-    print('-' * len(prologue) + '\n')
+        log('[Star Rail] Process check-in:')
+        sr.process_checkin()
 
+        log('[ZZZ] Process check-in:')
+        zzz.process_checkin()
 
-async def main():
-    cookies_list = get_all_cookies_env()
+        log(f'{len(prologue)*"-"}\n')
 
-    if not cookies_list:
-        print("No cookies found in environment. Exiting...")
+    except Exception as e:
+        # In lỗi đầy đủ và gọn với traceback
+        log(f'Error processing {name}: {e}\n{traceback.format_exc()}')
+
+def process_all_checkin():
+    cookie_accounts = get_all_cookies_env()
+
+    if not cookie_accounts:
+        log('No cookies env found.')
         return
 
-    tasks = [process_account(name, values) for name, values in cookies_list.items()]
-    await asyncio.gather(*tasks)
-
+    # Sử dụng ThreadPoolExecutor để giới hạn số thread đồng thời
+    max_workers = min(5, len(cookie_accounts))  # tối đa 5 thread
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for name, value in cookie_accounts:
+            executor.submit(process_account, name, value)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    process_all_checkin()
