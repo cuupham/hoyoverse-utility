@@ -23,13 +23,13 @@ def process_account(name, value):
         prologue = f'------ {name} ------'
         log(prologue)
 
-        log('[Genshin] Process check-in:')
+        log('[Genshin]')
         gs.process_checkin()
 
-        log('[Star Rail] Process check-in:')
+        log('[Star Rail]')
         sr.process_checkin()
 
-        log('[ZZZ] Process check-in:')
+        log('[ZZZ]')
         zzz.process_checkin()
 
         log(f'{len(prologue)*"-"}\n')
@@ -49,10 +49,13 @@ def process_all_checkin():
         return
 
     # Sử dụng ThreadPoolExecutor để giới hạn số thread đồng thời
-    max_workers = min(5, len(cookie_accounts))  # tối đa 5 thread
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for name, value in cookie_accounts.items():
-            executor.submit(process_account, name, value)
+    # max_workers = min(5, len(cookie_accounts))  # tối đa 5 thread
+    # with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    #     for name, value in cookie_accounts.items():
+    #         executor.submit(process_account, name, value)
+    
+    for name, value in cookie_accounts.items():
+        process_account(name, value)
 
 if __name__ == "__main__":
     process_all_checkin()
