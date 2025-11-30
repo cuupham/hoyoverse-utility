@@ -1,7 +1,10 @@
 name: Test Cookie Secret
 
 on:
-  workflow_dispatch:   # trigger thủ công
+  push:
+    branches:
+      - main         # mỗi lần push lên main sẽ chạy
+  workflow_dispatch: # vẫn có nút trigger thủ công
 
 jobs:
   test-secret:
@@ -17,14 +20,5 @@ jobs:
 
       - name: Run Python script
         env:
-          HOYOVERSE_COOKIE: ${{ secrets.P66720NRLORDCOM }}
-        run: |
-          python - <<'EOF'
-          import os
-          cookie = os.getenv("HOYOVERSE_COOKIE")
-          if cookie:
-              print("Cookie đã load thành công!")
-              print("First 50 chars:", cookie[:50])
-          else:
-              print("Chưa có cookie trong env")
-          EOF
+          HOYOVERSE_COOKIE: ${{ secrets.HOYOVERSE_COOKIE }}
+        run: python test_read_env.py
