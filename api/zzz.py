@@ -4,10 +4,10 @@ from helper import get_unix_ms
 
 class ZzzAPI(CoreAPI):
     
-    def __init__(self, user_cookies: dict, act_id: str):
+    def __init__(self, user_cookies: dict): #, act_id: str):
         self.user_cookies = user_cookies
         self.url = f'{self.PUBLIC_URL}/zzz/os'
-        self.act_id = act_id
+        #self.act_id = act_id
 
     @property
     def unix_time(self):
@@ -24,7 +24,8 @@ class ZzzAPI(CoreAPI):
         params = {
             'lang': 'en-us',
             #'act_id': f'{self.act_id}',
-            'act_id': self.act_id,
+            #'act_id': self.act_id,
+            'act_id': 'e202406031448091',
         }
         return self.send_get(endpoint, headers, cookies, params)
 
@@ -40,7 +41,8 @@ class ZzzAPI(CoreAPI):
         cookies = self.user_cookies
         json_data = {
             #'act_id': f'{self.act_id}',
-            'act_id': self.act_id,
+            #'act_id': self.act_id,
+            'act_id': 'e202406031448091',
             'lang': 'en-us',
         }
         return self.send_post(endpoint, headers, cookies, json_data)

@@ -1,0 +1,28 @@
+name: Daily Check-In (PROD)
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    environment: PROD   # <-- gắn environment PROD
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Run daily check-in script
+        env:
+          COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
+          COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
+          COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
+        run: |
+          python daily_check_in.py
