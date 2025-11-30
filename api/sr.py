@@ -4,7 +4,8 @@ from api._core import CoreAPI
 class SrAPI(CoreAPI):
     
     def __init__(self, user_cookies): #, act_id: str):
-        super().__init__(user_cookies)
+        #super().__init__(user_cookies)
+        self.user_cookies = user_cookies
         self.url = f'{self.PUBLIC_URL}/hkrpg/os'
         #self.act_id = act_id
     
