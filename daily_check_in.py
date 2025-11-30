@@ -48,7 +48,7 @@ def process_all_checkin():
     # Sử dụng ThreadPoolExecutor để giới hạn số thread đồng thời
     max_workers = min(5, len(cookie_accounts))  # tối đa 5 thread
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for name, value in cookie_accounts:
+        for name, value in cookie_accounts.items():
             executor.submit(process_account, name, value)
 
 if __name__ == "__main__":
