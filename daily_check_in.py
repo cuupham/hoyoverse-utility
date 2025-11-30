@@ -26,7 +26,7 @@ def main():
         print("[ERROR] No cookies found")
         return
 
-    for cookie_name, cookies_value in all_cookies:
+    for cookie_name, cookies_value in all_cookies.items():
         prologue = f'------ {cookie_name} ------'
         print(prologue)
         process_all_checkin(cookies_value)
