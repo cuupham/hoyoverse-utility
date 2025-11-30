@@ -1,4 +1,4 @@
-name: DAILY-CHECK-IN
+name: daily-check-in
 
 on:
   schedule:
