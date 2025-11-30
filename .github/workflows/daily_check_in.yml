@@ -19,6 +19,9 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Run daily check-in script
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
