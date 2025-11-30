@@ -13,7 +13,7 @@ def main():
         print("Chưa có cookie trong env")
 
 
-    cookie = os.getenv("Path")
+    cookie = os.getenv("PATH")
     
     if cookie:
         print("Cookie đã load thành công!")
@@ -22,6 +22,6 @@ def main():
         print("First 50 chars:", cookie[:50])
     else:
         print("Chưa có cookie trong env")
-        
+
 if __name__ == "__main__":
     main()
