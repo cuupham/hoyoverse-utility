@@ -10,20 +10,20 @@ def process_all_checkin(cookies_value: str):
     sr = SrFlow(parsed_cookies)
     zzz = ZzzFlow(parsed_cookies)
 
-    print('[Genshin]: ', end='')
+    print('[Genshin]:\t\t', end='')
     gs.process_checkin()
 
-    print('[Star Rail]: ', end='')
+    print('[Star Rail]:\t\t', end='')
     sr.process_checkin()
 
-    print('[ZZZ]: ', end='')
+    print('[ZZZ]:\t\t', end='')
     zzz.process_checkin()
 
 def main():
     all_cookies = cookies_env()
 
     if not all_cookies:
-        print("[ERROR] No cookies found")
+        print("[ERROR]: No cookies found. Exiting ...")
         return
 
     for cookie_name, cookies_value in all_cookies.items():
