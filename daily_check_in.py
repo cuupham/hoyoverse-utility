@@ -34,6 +34,9 @@ def process_account(name, value):
 
         log(f'{len(prologue)*"-"}\n')
 
+    except RuntimeError as e:
+        log(e)
+
     except Exception as e:
         # In lỗi đầy đủ và gọn với traceback
         log(f'Error processing {name}: {e}\n{traceback.format_exc()}')
