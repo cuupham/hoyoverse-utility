@@ -17,7 +17,7 @@ def process_all_checkin(cookie_name: str, cookies_value: str):
     zzz_result = zzz.process_checkin()
 
     prologue = f'------ {cookie_name} ------'
-    message = f'{prologue}\n[Genshin]:\n\t{gs_result}[Star Rail]:\n\t{sr_result}[ZZZ]:\n\t{zzz_result}\n{'-'*len(prologue)}'
+    message = f'{prologue}\n[Genshin]:\n\t{gs_result}\n[Star Rail]:\n\t{sr_result}\n[ZZZ]:\n\t{zzz_result}\n{'-'*len(prologue)}'
     print(message)
 
 def main():
