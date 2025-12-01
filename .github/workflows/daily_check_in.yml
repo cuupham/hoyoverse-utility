@@ -23,20 +23,21 @@ jobs:
           python-version: "3.13"
 
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install --upgrade pip && pip install -r requirements.txt
 
       - name: Run daily-check-in script
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
-        run: |
-          python daily_check_in.py
+        run: python daily_check_in.py
