@@ -35,7 +35,8 @@ def main():
         return
 
     for cookie_name, cookies_value in all_cookies.items():
-        threading.Thread(target=process_all_checkin, args=(cookie_name, cookies_value,)).start()
+        if cookies_value:
+            threading.Thread(target=process_all_checkin, args=(cookie_name, cookies_value,)).start()
         
 
 if __name__ == "__main__":
