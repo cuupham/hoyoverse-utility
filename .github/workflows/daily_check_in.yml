@@ -38,22 +38,27 @@ jobs:
       - name: Run daily-check-in script
         run: |
           for i in {1..10}; do
-            var="COOKIES_ACCOUNT_$i"
-            cookie=${!var}
+            secret_name="COOKIES_ACCOUNT_$i"
+            # kiểm tra xem secret có tồn tại (trong runner env)
+            cookie=${!secret_name}
             if [ -z "$cookie" ]; then
-              echo "Cookie $i not set, skipping..."
+              echo "$secret_name not set, skipping..."
               continue
             fi
-            python daily_check_in.py "$i" "$cookie"
+            # export tạm biến môi trường để Python đọc
+            export CURRENT_COOKIE="$cookie"
+            export CURRENT_ACCOUNT="$i"
+            python daily_check_in.py "$CURRENT_ACCOUNT" "$CURRENT_COOKIE"
           done
         env:
-          COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
-          COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
-          COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
-          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
-          COOKIES_ACCOUNT_5: ${{ secrets.COOKIES_ACCOUNT_5 }}
-          COOKIES_ACCOUNT_6: ${{ secrets.COOKIES_ACCOUNT_6 }}
-          COOKIES_ACCOUNT_7: ${{ secrets.COOKIES_ACCOUNT_7 }}
-          COOKIES_ACCOUNT_8: ${{ secrets.COOKIES_ACCOUNT_8 }}
-          COOKIES_ACCOUNT_9: ${{ secrets.COOKIES_ACCOUNT_9 }}
-          COOKIES_ACCOUNT_10: ${{ secrets.COOKIES_ACCOUNT_10 }}
+          # export tất cả secrets vào shell env, không cần tạo env cho từng biến
+          COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 || '' }}
+          COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 || '' }}
+          COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 || '' }}
+          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 || '' }}
+          COOKIES_ACCOUNT_5: ${{ secrets.COOKIES_ACCOUNT_5 || '' }}
+          COOKIES_ACCOUNT_6: ${{ secrets.COOKIES_ACCOUNT_6 || '' }}
+          COOKIES_ACCOUNT_7: ${{ secrets.COOKIES_ACCOUNT_7 || '' }}
+          COOKIES_ACCOUNT_8: ${{ secrets.COOKIES_ACCOUNT_8 || '' }}
+          COOKIES_ACCOUNT_9: ${{ secrets.COOKIES_ACCOUNT_9 || '' }}
+          COOKIES_ACCOUNT_10: ${{ secrets.COOKIES_ACCOUNT_10 || '' }}
