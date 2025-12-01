@@ -40,5 +40,5 @@ jobs:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
-          COOKIES_TRUC_CLONE: ${{ secrets.COOKIES_TRUC_CLONE}}
+          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4}}
         run: python daily_check_in.py
