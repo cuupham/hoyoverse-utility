@@ -36,9 +36,24 @@ jobs:
         run: pip install --upgrade pip && pip install -r requirements.txt
 
       - name: Run daily-check-in script
+        run: |
+          for i in {1..10}; do
+            var="COOKIES_ACCOUNT_$i"
+            cookie=${!var}
+            if [ -z "$cookie" ]; then
+              echo "Cookie $i not set, skipping..."
+              continue
+            fi
+            python daily_check_in.py "$i" "$cookie"
+          done
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
-          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4}}
-        run: python daily_check_in.py
+          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
+          COOKIES_ACCOUNT_5: ${{ secrets.COOKIES_ACCOUNT_5 }}
+          COOKIES_ACCOUNT_6: ${{ secrets.COOKIES_ACCOUNT_6 }}
+          COOKIES_ACCOUNT_7: ${{ secrets.COOKIES_ACCOUNT_7 }}
+          COOKIES_ACCOUNT_8: ${{ secrets.COOKIES_ACCOUNT_8 }}
+          COOKIES_ACCOUNT_9: ${{ secrets.COOKIES_ACCOUNT_9 }}
+          COOKIES_ACCOUNT_10: ${{ secrets.COOKIES_ACCOUNT_10 }}
