@@ -22,7 +22,7 @@ def process_all_checkin(cookie_name: str, cookies_value: str):
         f"• Genshin:\n\t→ {gs_result}\n"
         f"• Star Rail:\n\t→ {sr_result}\n"
         f"• ZZZ:\n\t→ {zzz_result}\n"
-        f"{epilogue}\n\n"
+        f"{epilogue}\n"
     )
 
     print(message)
