@@ -19,12 +19,11 @@ def process_all_checkin(cookie_name: str, cookies_value: str):
     epilogue = "-" * len(prologue)
     message = (
         f"{prologue}\n"
-        f"• Genshin:\n   → {gs_result}\n"
-        f"• Star Rail:\n   → {sr_result}\n"
-        f"• ZZZ:\n   → {zzz_result}\n"
+        f"[Genshin]:\n   • {gs_result}\n"
+        f"[Star Rail]:\n   • {sr_result}\n"
+        f"[ZZZ]:\n   • {zzz_result}\n"
         f"{epilogue}\n"
     )
-
     print(message)
 
 def main():
