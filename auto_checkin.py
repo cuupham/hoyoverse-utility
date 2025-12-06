@@ -17,10 +17,10 @@ def process_checkin(c_name: str, c_value: str):
     zzz_result = zzz.process_checkin()
 
     message = (
-        f"------ {c_name} ------"
-        f"[Genshin]:\n  • {gs_result}\n"
-        f"[Star Rail]:\n  • {sr_result}\n"
-        f"[ZZZ]:\n  • {zzz_result}\n"
+        f"------ {c_name} ------\n"
+        f"[Genshin]:\n• {gs_result}\n"
+        f"[Star Rail]:\n• {sr_result}\n"
+        f"[ZZZ]:\n• {zzz_result}\n"
     )
     print(message)
 

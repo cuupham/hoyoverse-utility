@@ -19,10 +19,9 @@ def process_redeem(c_name, c_value):
     sr_result = sr.claim_redeem_code()
 
     # print
-    prologue = f"------ {c_name} ------\n"
     txt = (
-        f"{prologue}\n"
-        f"[Star Rail]:\n{sr_result}\n"
+        f"------ {c_name} ------\n"
+        f"[Star Rail]:\n{sr_result}"
     )
     print(txt)
 

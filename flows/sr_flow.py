@@ -69,8 +69,8 @@ class SrFlow:
         txt = ''
         for uid_info in uids_info:
             for cd_key in cd_keys:
-                self.api.redeem_code(uid_info, cd_key)
-                txt += f'"{cd_key}": Done\n'
+                _res = self.api.redeem_code(uid_info, cd_key)
+                txt += f'"{cd_key}": {_res}\n'
 
                 if cd_key != cd_keys[-1]:
                     time.sleep(5)
