@@ -1,5 +1,5 @@
-from api._core import CoreAPI
-from helper import get_hour_str, get_unix_ms
+from api._core_api import CoreAPI
+from helper import get_hour_str, get_unix_ms, get_rpc_weekday
 
 
 class SrAPI(CoreAPI):
@@ -36,7 +36,7 @@ class SrAPI(CoreAPI):
             }
         )
     
-    def get_user_game_role_by_ltoken(self):
+    def get_user_game_role(self):
         return self._get(
             'https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken',
             headers= {
@@ -53,7 +53,7 @@ class SrAPI(CoreAPI):
                 'x-rpc-source_info': '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
                 'x-rpc-sys_version': 'Windows NT 10.0',
                 'x-rpc-timezone': 'Asia/Bangkok',
-                'x-rpc-weekday': '5',
+                'x-rpc-weekday': get_rpc_weekday(),
             },
             params = {
                 'game_biz': 'hkrpg_global',
@@ -78,7 +78,7 @@ class SrAPI(CoreAPI):
                 'x-rpc-source_info': '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
                 'x-rpc-sys_version': 'Windows NT 10.0',
                 'x-rpc-timezone': 'Asia/Bangkok',
-                'x-rpc-weekday': '5',
+                'x-rpc-weekday': get_rpc_weekday(),
             },
             params = {
                 'game_id': '6',
@@ -102,7 +102,7 @@ class SrAPI(CoreAPI):
                 'x-rpc-source_info': '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
                 'x-rpc-sys_version': 'Windows NT 10.0',
                 'x-rpc-timezone': 'Asia/Bangkok',
-                'x-rpc-weekday': '5',
+                'x-rpc-weekday': get_rpc_weekday(),
             },
             params = {
                 'cdkey': cdkey,

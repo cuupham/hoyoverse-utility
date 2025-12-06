@@ -9,7 +9,7 @@ class SrFlow:
 
     # --- Helper ---
     def fetch_game_roles(self) -> list[dict] | dict:
-        data = self.api.get_user_game_role_by_ltoken()
+        data = self.api.get_user_game_role()
         retcode = data['retcode']
 
         if retcode != 0:

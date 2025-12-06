@@ -36,6 +36,10 @@ class CoreAPI:
             "origin": "https://zenless.hoyoverse.com",
             "referer": "https://zenless.hoyoverse.com/",
         },
+        "genshin": {
+            'origin': 'https://genshin.hoyoverse.com',
+            'referer': 'https://genshin.hoyoverse.com/',
+        }
     }
 
     # --- ACT ---

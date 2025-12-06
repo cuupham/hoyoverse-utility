@@ -36,7 +36,7 @@ def main():
     for k, v in cookies_raw.items():
         if v:
             threading.Thread(target=process_redeem, args=(k, v)).start()
-    print('==================== REDEEM CODE ===================='.__len__()*'=')
+    
 
 if __name__ == '__main__':
     main()
