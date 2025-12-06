@@ -20,7 +20,7 @@ def process_checkin(c_name: str, c_value: str):
         f"------ {c_name} ------\n"
         f"[Genshin]:\n• {gs_result}\n"
         f"[Star Rail]:\n• {sr_result}\n"
-        f"[ZZZ]:\n• {zzz_result}\n"
+        f"[ZZZ]:\n• {zzz_result}\n\n"
     )
     print(message)
 
