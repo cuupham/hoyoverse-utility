@@ -1,7 +1,7 @@
 from api.zzz_api import ZzzAPI
 
 
-class GsFlow:
+class ZzzFlow:
 
     def __init__(self, cookies):
         self.api = ZzzAPI(cookies)
