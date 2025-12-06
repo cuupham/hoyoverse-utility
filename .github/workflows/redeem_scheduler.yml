@@ -1,4 +1,4 @@
-name: daily-check-in
+name: Redeem Scheduler
 
 on:
   push:
@@ -28,9 +28,10 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/pip/wheels
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+
           restore-keys: |
-            ${{ runner.os }}-pip-
+            pip-${{ runner.os }}-
 
       - name: Install dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
@@ -41,4 +42,4 @@ jobs:
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
           COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
-        run: python daily_check_in.py
+        run: python auto_redeem.py
