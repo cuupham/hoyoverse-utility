@@ -60,11 +60,11 @@ class SrFlow:
         return self.api.checkin()
 
     def claim_redeem_code(self):
-        uids_info = self.fetch_game_roles()
-        cd_keys = self.fetch_exchange_codes()
-
-        if not uids_info or not cd_keys:
-            return 'No uid or no redeem code avaiable'
+        if not (uids_info := self.fetch_game_roles()):
+            return 'UID not found.'
+        
+        if not (cd_keys := self.fetch_exchange_codes()):
+            return 'CD_KEY does not exist.'
 
         txt = ''
         for uid_info in uids_info:

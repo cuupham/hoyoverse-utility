@@ -20,7 +20,7 @@ def process_checkin(c_name: str, c_value: str):
         f"------ {c_name} ------\n"
         f"[Genshin]:\n• {gs_result}\n"
         f"[Star Rail]:\n• {sr_result}\n"
-        f"[ZZZ]:\n• {zzz_result}\n\n"
+        f"[ZZZ]:\n• {zzz_result}\n"
     )
     print(message)
 
@@ -31,10 +31,11 @@ def main():
         print("[ERROR] COOKIES env not found. Exiting.")
         return
 
+    print('==================== CHECK-IN ====================')
     for k, v in cookies_raw.items():
         if v:
             threading.Thread(target=process_checkin, args=(k, v)).start()
-        
+    print('==================== CHECK-IN ===================='.__len__()*'=')
 
 if __name__ == "__main__":
     main()

@@ -1,4 +1,4 @@
-name: Redeem Scheduler
+name: Hoyoverse Scheduler
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  redeem:
+  hyv_scheduler:
     runs-on: ubuntu-latest
     environment: PROD
 
@@ -28,18 +28,18 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.cache/pip/wheels
-          key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
-            pip-${{ runner.os }}-
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
 
-      - name: Run script - auto_redeem
+      - name: Run script - python
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
           COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
-        run: python auto_redeem.py
+        run: python auto_checkin.py && python auto_redeem.py
+  
