@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  checkin:
+  redeem:
     runs-on: ubuntu-latest
     environment: PROD
 
