@@ -1,0 +1,44 @@
+name: Daily Check-in
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '40 21 * * *'
+  workflow_dispatch:
+
+jobs:
+  checkin:
+    runs-on: ubuntu-latest
+    environment: PROD
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/pip/wheels
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Run daily-check-in script
+        env:
+          COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
+          COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
+          COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
+          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
+        run: python auto_checkin.py
