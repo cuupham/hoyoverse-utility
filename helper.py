@@ -19,6 +19,8 @@ def cookies_env():
 def get_hour_str() -> str:
     return f'{datetime.now().hour:02}'
 
+def get_rpc_weekday() -> str:
+    return str(datetime.now().isoweekday())
 
 
 
