@@ -35,7 +35,7 @@ def main():
     for k, v in cookies_raw.items():
         if v:
             threading.Thread(target=process_checkin, args=(k, v)).start()
-    print('==================== CHECK-IN ===================='.__len__()*'=')
+
 
 if __name__ == "__main__":
     main()
