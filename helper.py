@@ -1,6 +1,7 @@
 from http.cookies import SimpleCookie
 import os
 import time
+from datetime import datetime
 
 
 def parse_cookies(cookies_str: str):
@@ -15,8 +16,9 @@ def get_unix_ms():
 def cookies_env():
     return {k: v for k, v in os.environ.items() if k.startswith("COOKIES_")}
 
+def get_hour_str() -> str:
+    return f'{datetime.now().hour:02}'
 
-# def extract_cookies(cookies: dict):
-#     raw = ('mi18nLang', '_HYVUUID', '_HYVUUID', 'ltoken_v2', 'ltmid_v2', 'ltuid_v2')
-#     cookies_dict = cookies_to_dict(cookies)
-#     return {k:v for k, v in cookies_dict.items() if k in raw}
+
+
+
