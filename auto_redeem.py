@@ -19,10 +19,9 @@ def process_redeem(c_name, c_value):
     sr_result = sr.claim_redeem_code()
 
     # print
-    prologue = f"------ {c_name} ------\n"
     txt = (
-        f"{prologue}\n"
-        f"[Star Rail]:\n{sr_result}\n"
+        f"------ {c_name} ------\n"
+        f"[Star Rail]:\n{sr_result}"
     )
     print(txt)
 
@@ -32,10 +31,12 @@ def main():
     if not cookies_raw:
         print("[ERROR] COOKIES env not found. Exiting.")
         return
-
+    
+    print('==================== REDEEM CODE ====================')
     for k, v in cookies_raw.items():
         if v:
             threading.Thread(target=process_redeem, args=(k, v)).start()
+    print('==================== REDEEM CODE ===================='.__len__()*'=')
 
 if __name__ == '__main__':
     main()
