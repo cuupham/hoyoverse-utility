@@ -1,4 +1,4 @@
-name: Hoyoverse Scheduler
+name: daily_job
 
 on:
   # push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  hoyoverse_scheduler:
+  run_daily:
     runs-on: ubuntu-latest
     environment: PROD
 
@@ -35,11 +35,11 @@ jobs:
       - name: Install dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
 
-      - name: Run script - python
+      - name: Run Python Scripts
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
           COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
           COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
-        run: python auto_checkin.py && python auto_redeem.py
+        run: python main.py
   

@@ -1,16 +1,16 @@
 from api._core_api import CoreAPI
-from helper import get_hour_str, get_unix_ms, get_rpc_weekday
+from core.utils import get_current_hour_str, get_unix_ms, get_rpc_weekday
 
 
 class SrAPI(CoreAPI):
     
     def __init__(self, cookies:dict):
         super().__init__(cookies)
-        self.public_url = self.PUBLIC_URL + '/hkrpg/os'
-    
-    def info(self):
+        self.public_url = f'{self.PUBLIC_URL}/hkrpg/os'
+
+    def get_sign_info(self):
         return self._get(
-            self.public_url + '/info',
+            f'{self.public_url}/info',
             headers= {
                  **self.ORIGIN_TYPE['act_hoyolab'],
                 'x-rpc-signgame': 'hkrpg',
@@ -21,9 +21,9 @@ class SrAPI(CoreAPI):
             }
         )
     
-    def checkin(self):
+    def sign(self):
         return self._post(
-            self.public_url + '/sign',
+            f'{self.public_url}/sign',
             headers= {
                 **self.ORIGIN_TYPE['act_hoyolab'],
                 'x-rpc-client_type': '5',
@@ -36,15 +36,15 @@ class SrAPI(CoreAPI):
             }
         )
     
-    def get_user_game_role(self):
+    def get_user_game_roles_by_ltoken(self):
         return self._get(
             'https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken',
             headers= {
                 **self.ORIGIN_TYPE['hoyolab'],
-                'x-rpc-app_version': '4.0.0',
+                #'x-rpc-app_version': '4.0.0',
                 'x-rpc-client_type': '4',
-                'x-rpc-device_id': self.session.cookies.get('_MHYUUID'),
-                'x-rpc-hour': get_hour_str(),
+                'x-rpc-device_id': self.session.cookies['_MHYUUID'],
+                'x-rpc-hour': get_current_hour_str(),
                 'x-rpc-language': 'en-us',
                 'x-rpc-lrsag': '',
                 'x-rpc-page_info': '{"pageName":"HomeGamePage","pageType":"42","pageId":"","pageArrangement":"Hot","gameId":"6"}',
@@ -61,15 +61,15 @@ class SrAPI(CoreAPI):
             }
         )
 
-    def get_material(self):
+    def fetch_channel_materials(self):
         return self._get(
             self.BBS_URL + '/circle/channel/guide/material',
             headers={
                 **self.ORIGIN_TYPE['hoyolab'],
-                'x-rpc-app_version': '4.0.0',
+                #'x-rpc-app_version': '4.0.0',
                 'x-rpc-client_type': '4',
-                'x-rpc-device_id': self.session.cookies.get('_MHYUUID'),
-                'x-rpc-hour': get_hour_str(),
+                'x-rpc-device_id': self.session.cookies['_MHYUUID'],
+                'x-rpc-hour': get_current_hour_str(),
                 'x-rpc-language': 'en-us',
                 'x-rpc-lrsag': '',
                 'x-rpc-page_info': '{"pageName":"","pageType":"","pageId":"","pageArrangement":"","gameId":""}',
@@ -85,15 +85,15 @@ class SrAPI(CoreAPI):
             }
         )
     
-    def redeem_code(self, uid_info:dict, cdkey:str):
+    def exchange_cdkey(self, uid_info:dict, cdkey:str):
         return self._get(
             'https://public-operation-hkrpg.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl',
             headers= {
                 **self.ORIGIN_TYPE['hoyolab'],
-                'x-rpc-app_version': '4.0.0',
+                #'x-rpc-app_version': '4.0.0',
                 'x-rpc-client_type': '4',
                 'x-rpc-device_id': self.session.cookies['_MHYUUID'],
-                'x-rpc-hour': get_hour_str(),
+                'x-rpc-hour': get_current_hour_str(),
                 'x-rpc-language': 'en-us',
                 'x-rpc-lrsag': '',
                 'x-rpc-page_info': '{"pageName":"HomeGamePage","pageType":"42","pageId":"","pageArrangement":"Hot","gameId":"6"}',
@@ -113,6 +113,7 @@ class SrAPI(CoreAPI):
                 'uid': uid_info['game_uid'],
             }
         )
+
 
 
 
