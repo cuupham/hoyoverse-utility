@@ -1,4 +1,4 @@
-name: Hoyoverse Scheduler
+name: hoyoverse-scheduler
 
 on:
   # push:
@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
 
-      - name: Run script - python
+      - name: Run scripts
         env:
           COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
           COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
