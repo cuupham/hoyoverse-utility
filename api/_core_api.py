@@ -58,6 +58,6 @@ class CoreAPI:
         r = self.session.get(url=url, headers=headers, params=params)
         return r.json()
     
-    def _post(self, url:str, /,headers:dict, json_data:dict) -> dict:
+    def _post(self, url:str, /, headers:dict, json_data:dict) -> dict:
         r = self.session.post(url=url, headers=headers, json=json_data)
         return r.json()
