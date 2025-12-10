@@ -73,7 +73,7 @@ def _fetch_cdkeys(api: GsAPI|SrAPI|ZzzAPI):
     return codes
 
 def fetch_all_cdkeys(api_dict: dict):
-    print('-' * 6 + ' CHECK ALL CDKEYS ' + '-' * 6)
+    print('-'*6 + ' CDKEYS ' + '-'*6)
 
     with ThreadPoolExecutor(max_workers=len(api_dict)) as ex:
         futures = {game: ex.submit(_fetch_cdkeys, api) for game, api in api_dict.items()}
