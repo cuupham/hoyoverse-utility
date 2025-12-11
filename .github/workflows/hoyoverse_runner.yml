@@ -1,4 +1,4 @@
-name: daily_job
+name: Daily Check-in & Redeem
 
 on:
   # push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run_daily:
+  checkin_redeem:
     runs-on: ubuntu-latest
     environment: PROD
 
