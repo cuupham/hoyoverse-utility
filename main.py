@@ -1,27 +1,33 @@
 from core.utils import get_cookies_env
-from core.controller import run_all_sign, get_accounts, fetch_all_cdkeys, fetch_all_uid, run_all_redeem_code
+from controllers.api_controller import initialize_api, get_api_0
+from controllers.sign_controller import multi_sign_in
+from controllers.redeem_controller import fetch_all_cdkeys, run_redeem_all
+
 from traceback import format_exc
 
 
 def main():
-    if not (cookies_raw := get_cookies_env()):
-        raise RuntimeError('Cookies Env is empty. The program will exit.')
+    if not (raw_cookies := get_cookies_env()):
+        print('Cookies environment is "empty". Exit now')
+        return
 
-    accounts = get_accounts(cookies_raw)
+    apis = initialize_api(raw_cookies)
     
-    # Check-in
-    run_all_sign(accounts)
+    # Sign-in
+    multi_sign_in(apis)
 
     # Redeem
-    try: 
-        cdkeys = fetch_all_cdkeys(next(iter(accounts.values())))
-        all_uid = fetch_all_uid(accounts, tuple(cdkeys.values()))
-        run_all_redeem_code(all_uid, cdkeys)
+    try:
+        api_0 = get_api_0(apis)
+        all_cdkeys = fetch_all_cdkeys(api_0)
+        run_redeem_all(apis, all_cdkeys)
     except LookupError as e:
         print(e)
         return
     except Exception:
+        
         print(format_exc())
+
 
 if __name__ == '__main__':
     main()
