@@ -2,7 +2,6 @@ from http.cookies import SimpleCookie
 import os
 import time
 from datetime import datetime
-#import threading
 
 
 def parse_cookies(cookies_str: str) -> dict[str, str]:
@@ -15,19 +14,16 @@ def get_unix_ms() -> int:
 
 def get_cookies_env() -> dict[str, str]:
     return {
-        k: v
-        for k, v in os.environ.items()
+        k: v for k, v in os.environ.items()
         if k.startswith("COOKIES_") and v.strip()
     }
 
 def get_current_hour_str() -> str:
     return f"{datetime.now().hour:02}"
 
-def get_rpc_weekday() -> str: # ISO: 1 = Monday, 7 = Sunday
-    return str(datetime.now().isoweekday())
+def get_rpc_weekday() -> str:       
+    return str(datetime.now().isoweekday())     # ISO: 1 = Monday, 7 = Sunday
 
-# --- Decorator ---
-# def threaded(func):
-#     def wrapper(*args, **kwargs):
-#         threading.Thread(target=func, args=(*args, *kwargs)).start()
-#     return wrapper
+
+
+

@@ -47,7 +47,7 @@ class ZzzAPI(CoreAPI):
                 'x-rpc-hour': get_current_hour_str(),
                 'x-rpc-language': 'en-us',
                 'x-rpc-lrsag': '',
-                'x-rpc-page_info': '{"pageName":"HomeGamePage","pageType":"42","pageId":"","pageArrangement":"Hot","gameId":"6"}',
+                #'x-rpc-page_info': '{"pageName":"HomeGamePage","pageType":"42","pageId":"","pageArrangement":"Hot","gameId":"6"}',
                 'x-rpc-page_name': 'HomeGamePage',
                 'x-rpc-show-translated': 'false',
                 'x-rpc-source_info': '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
