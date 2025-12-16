@@ -28,7 +28,7 @@ def _show_log(name, result):
     if name == 'checkin':
         if isinstance(result, dict):
             for acc_name, games_dict in result.items():
-                print(acc_name.center(80, '┅'))
+                print(acc_name.center(80, '-'))
                 for game_name, r in games_dict.items():
                     print(f'{game_name:10}: {r}')
         else:
