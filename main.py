@@ -24,11 +24,11 @@ def redeem_task(user_cookies):
         return f'[Redeem] failed: {e}'
 
 def _show_log(name, result):
-    print(name.upper().center(80, '―'))
+    print(name.upper().center(80, '≡'))
     if name == 'checkin':
         if isinstance(result, dict):
             for acc_name, games_dict in result.items():
-                print(acc_name.center(80, '╌'))
+                print(acc_name.center(80, '┅'))
                 for game_name, r in games_dict.items():
                     print(f'{game_name:10}: {r}')
         else:
@@ -37,7 +37,7 @@ def _show_log(name, result):
     elif name == 'redeem':
         if isinstance(result, dict):
             for acc_name, results_dict in result.items():
-                print(acc_name.center(80, '╌'))
+                print(acc_name.center(80, '┅'))
                 for (game_code, server), code_list in results_dict.items():
                     print(f'◀ [{game_code}][{server}] ▶')
                     for cdkey, response in code_list:
