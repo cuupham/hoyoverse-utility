@@ -34,9 +34,9 @@ jobs:
 
       - name: Run Python Scripts
         env:
-          COOKIES_ACCOUNT_1: ${{ secrets.COOKIES_ACCOUNT_1 }}
-          COOKIES_ACCOUNT_2: ${{ secrets.COOKIES_ACCOUNT_2 }}
-          COOKIES_ACCOUNT_3: ${{ secrets.COOKIES_ACCOUNT_3 }}
-          COOKIES_ACCOUNT_4: ${{ secrets.COOKIES_ACCOUNT_4 }}
+          COOKIES_MONDAY: ${{ secrets.COOKIES_MONDAY }}
+          COOKIES_RM: ${{ secrets.COOKIES_RM }}
+          COOKIES_SUNDAY: ${{ secrets.COOKIES_SUNDAY }}
+          COOKIES_TRUC: ${{ secrets.COOKIES_TRUC }}
         run: python main.py
   
