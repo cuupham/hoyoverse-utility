@@ -1,6 +1,9 @@
 name: Daily Check-in & Redeem
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '40 21 * * *'
   workflow_dispatch:
