@@ -37,7 +37,7 @@ def _show_log(name, result):
     elif name == 'redeem':
         if isinstance(result, dict):
             for acc_name, results_dict in result.items():
-                print(acc_name.center(80, '┅'))
+                print(acc_name.center(80, '-'))
                 for (game_code, server), code_list in results_dict.items():
                     print(f'◀ [{game_code}][{server}] ▶')
                     for cdkey, response in code_list:
