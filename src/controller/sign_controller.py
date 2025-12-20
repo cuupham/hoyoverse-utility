@@ -12,6 +12,7 @@ class SignController:
     def _is_sign(api: g|s|z, cookies:dict):
         r = api.get_sign_info(cookies)
         if r.get('retcode') != 0:
+            r = {k:r[k] for k in ('retcode', 'message')}
             raise RuntimeError(f'[/info][BAD_RETCODE]: {r}')
         data = r.get('data')
         if not isinstance(data, dict) or 'is_sign' not in data:
@@ -28,7 +29,7 @@ class SignController:
             return str(e)
         
         r = api.submit_sign(cookies)
-        return r
+        return {k:r[k] for k in ('retcode', 'message')}
     
     @classmethod
     def _sign_task(cls, name, cookies, api, game):
