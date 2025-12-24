@@ -21,7 +21,7 @@ def redeem_task(user_cookies):
         results = rc.redeem_multi_code(user_cookies, multi_cdkeys, multi_uid)
         return results
     except Exception as e:
-        return f'[Redeem] failed: {e}'
+        return f'[Redeem][EXCEPTION]: {e}'
 
 def _show_log(name, result):
     print(name.upper().center(80, '≡'))
