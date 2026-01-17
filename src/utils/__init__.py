@@ -13,6 +13,7 @@ __all__ = [
     "log_warning",
     "log_debug",
     "log_result",
+    "log_print",
     # Helpers
     "current_hour",
     "rpc_weekday",
