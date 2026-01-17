@@ -14,19 +14,16 @@ from src.utils.logger import ctx, log_info, log_error, log_print
 def print_header():
     """In header của tool"""
     from datetime import datetime
-    log_print("=" * 60)
-    log_print("                    HOYOLAB AUTO TOOL")
-    log_print(f"                    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    log_print(f"                    Trace ID: {ctx.trace_id}")
-    log_print("=" * 60)
-    log_print()
+    log_print("=" * 50)
+    log_print("HOYOLAB AUTO TOOL")
+    log_print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_print(f"Trace: {ctx.trace_id}")
+    log_print("=" * 50)
 
 
 def print_section(title: str):
     """In section header"""
-    log_print("=" * 60)
     log_print(f"--- {title} ---")
-    log_print("=" * 60)
     log_print()
 
 
@@ -175,10 +172,9 @@ async def main():
         await run_redeem(session, valid_accounts)
     
     # Bước 4: Kết thúc
-    log_print("=" * 60)
-    log_print("--- KẾT THÚC ---")
-    log_print(f"Thời gian chạy: {ctx.elapsed_seconds:.1f} giây")
-    log_print("=" * 60)
+    log_print("=" * 50)
+    log_print(f"DONE - {ctx.elapsed_seconds:.1f}s")
+    log_print("=" * 50)
 
 
 if __name__ == "__main__":
