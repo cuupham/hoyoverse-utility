@@ -1,0 +1,35 @@
+name: HoYoLab Daily Check-in & Redeem
+
+on:
+  schedule:
+    # 4:45 sáng giờ Việt Nam (GMT+7) = 21:45 UTC ngày hôm trước
+    - cron: '45 21 * * *'
+  workflow_dispatch:  # Cho phép chạy manual
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    environment: live
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python with pip cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run script
+        env:
+          ACC_1: ${{ secrets.ACC_1 }}
+          ACC_2: ${{ secrets.ACC_2 }}
+          ACC_3: ${{ secrets.ACC_3 }}
+          ACC_4: ${{ secrets.ACC_4 }}
+          # Thêm LOG_LEVEL=json để machine-parseable logs
+          # LOG_LEVEL: json
+        run: python -m src.main
