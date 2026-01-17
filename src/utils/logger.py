@@ -102,4 +102,19 @@ def log_result(data: dict, human_msg: str) -> None:
             **data,
             "trace_id": ctx.trace_id,
             "timestamp": datetime.now().isoformat(),
-        }))
+        }), flush=True)
+
+
+def log_print(message: str = "") -> None:
+    """Thay thế print() để đảm bảo output ordering nhất quán
+    
+    Trong CI environments (GitHub Actions), stdout/stderr có thể bị 
+    buffer khác nhau. Dùng logger.info thay vì print để đảm bảo
+    thứ tự output đúng.
+    """
+    if message:
+        # Dùng empty prefix để không có [account] format
+        logger.info(message)
+    else:
+        # Empty line - vẫn dùng logger để giữ ordering
+        logger.info("")
