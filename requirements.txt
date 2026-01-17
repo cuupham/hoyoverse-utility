@@ -1,1 +1,2 @@
-requests
+aiohttp>=3.13.3
+fake-useragent>=2.2.0
