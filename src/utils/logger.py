@@ -52,13 +52,32 @@ class ExecutionContext:
         return cls._instance
     
     def _setup_logging(self) -> None:
-        """Setup logging với trace_id filter"""
-        logging.basicConfig(
-            level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO,
-            format="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
-            datefmt="%Y-%m-%dT%H:%M:%S",
-        )
-        logging.getLogger().addFilter(TraceIdFilter(self.trace_id))
+        """Setup logging với trace_id filter và force flush
+        
+        Dùng custom handler để đảm bảo mỗi log được flush ngay,
+        tránh interleave khi có nhiều async tasks log cùng lúc.
+        """
+        # Tạo custom handler với force flush
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
+        handler.setFormatter(logging.Formatter(
+            fmt="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S"
+        ))
+        
+        # Override emit để force flush sau mỗi log
+        original_emit = handler.emit
+        def flush_emit(record):
+            original_emit(record)
+            handler.flush()
+        handler.emit = flush_emit
+        
+        # Cấu hình root logger
+        root_logger = logging.getLogger()
+        root_logger.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
+        root_logger.handlers.clear()  # Xóa default handlers
+        root_logger.addHandler(handler)
+        root_logger.addFilter(TraceIdFilter(self.trace_id))
     
     @property
     def elapsed_seconds(self) -> float:
@@ -111,10 +130,16 @@ def log_print(message: str = "") -> None:
     Trong CI environments (GitHub Actions), stdout/stderr có thể bị 
     buffer khác nhau. Dùng logger.info thay vì print để đảm bảo
     thứ tự output đúng.
+    
+    Xử lý multiline: Mỗi dòng được log riêng để có prefix đầy đủ.
     """
-    if message:
-        # Dùng empty prefix để không có [account] format
-        logger.info(message)
-    else:
-        # Empty line - vẫn dùng logger để giữ ordering
+    if not message:
+        # Empty line
         logger.info("")
+        return
+    
+    # Split by newline và log từng dòng riêng
+    # Điều này đảm bảo mỗi dòng có prefix [trace_id][INFO]
+    lines = message.split('\n')
+    for line in lines:
+        logger.info(line)
