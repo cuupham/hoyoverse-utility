@@ -134,12 +134,17 @@ async def safe_api_call(
 
 
 def create_session() -> aiohttp.ClientSession:
-    """Tạo ClientSession với connection pooling và timeout"""
+    """Tạo ClientSession với connection pooling và timeout.
+    
+    Sử dụng DummyCookieJar để tránh rò rỉ cookie giữa các accounts
+    khi chạy song song, vì chúng ta đã tự quản lý cookie trong header.
+    """
     return aiohttp.ClientSession(
         connector=aiohttp.TCPConnector(
             limit=30,
             limit_per_host=10,
         ),
+        cookie_jar=aiohttp.DummyCookieJar(),
         timeout=aiohttp.ClientTimeout(
             total=REQUEST_TIMEOUT,
             connect=CONNECT_TIMEOUT,
