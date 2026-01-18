@@ -58,7 +58,7 @@ Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; .
 
 ```
 ├── .github/workflows/
-│   └── daily.yml           # GitHub Actions workflow
+│   └── hoyo-flow.yml       # GitHub Actions workflow
 ├── .test_local/            # Local test suite (gitignored)
 │   ├── test_checkin.py
 │   ├── test_redeem.py
