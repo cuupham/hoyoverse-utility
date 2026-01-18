@@ -332,21 +332,14 @@ headers = {
 
 **Method:** `GET`
 
-**Headers (Genshin):**
+**Headers (Minimal):**
 ```python
 headers = {
     **COMMON_HEADERS,
     **ORIGINS["act_hoyolab"],
-    "x-rpc-lrsag": "",
-}
-```
-
-**Headers (Star Rail / ZZZ):**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["act_hoyolab"],
-    "x-rpc-signgame": "hkrpg",  # hoặc "zzz" cho ZZZ
+    # Chỉ gửi x-rpc header cần thiết cho từng game
+    "x-rpc-lrsag": "",          # Cho Genshin (Sol)
+    "x-rpc-signgame": "hkrpg",  # Cho Star Rail (Luna)
 }
 ```
 
@@ -407,8 +400,8 @@ headers = {
 headers = {
     **COMMON_HEADERS,
     **ORIGINS["act_hoyolab"],
-    "x-rpc-client_type": "5",
-    "x-rpc-platform": "4",
+    "x-rpc-client_type": "4",   # Web (đồng bộ với cookie)
+    "x-rpc-platform": "4",      # Web/PC
     "x-rpc-signgame": "hkrpg",  # hoặc "zzz"
 }
 ```
@@ -997,7 +990,7 @@ class ExecutionContext:
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
-            datefmt="%Y-%m-%dT%H:%M:%S",
+            datefmt="%d/%m/%Y %H:%M:%S",  # Kiểu Việt Nam
         )
         # Thêm filter vào root logger
         logging.getLogger().addFilter(TraceIdFilter(self.trace_id))
@@ -1318,6 +1311,7 @@ async def main():
             limit=30,          # Max 30 concurrent connections
             limit_per_host=10, # Max 10 connections per host
         ),
+        cookie_jar=aiohttp.DummyCookieJar(), # BẮT BUỘC: Cô lập cookie giữa các accounts
         timeout=aiohttp.ClientTimeout(
             total=30,     # Timeout tổng 30s
             connect=10,   # Timeout kết nối 10s
@@ -1468,3 +1462,36 @@ jobs:
 
 > [!CAUTION]
 > Dù là public repo, **TUYỆT ĐỐI** không commit file chứa cookies hoặc hardcode secrets vào code!
+---
+
+## 14. Testing
+
+Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra toàn bộ logic nghiệp vụ mà không cần gọi API thực tế (Mocking).
+
+### 14.1. Cấu trúc Testing
+
+```
+.test_local/
+├── conftest.py          # Fixtures & Mock data chung
+├── test_checkin.py      # Test logic điểm danh (Sol/Luna)
+├── test_redeem.py       # Test logic đổi code & cross-region skip
+├── test_fetch_cdkeys.py # Test logic lấy code từ HoYoLab
+└── test_core.py        # Test models, utils và session isolation
+```
+
+### 14.2. Các kịch bản Test quan trọng
+
+- **Session Isolation**: Đảm bảo `ClientSession` dùng `DummyCookieJar` để không bị rò rỉ cookie giữa các tài khoản khi chạy song song.
+- **Header Differentiation**: Kiểm tra `x-rpc-*` headers được gửi đúng theo từng loại game (Sol vs Luna).
+- **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` (hết hạn), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
+- **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `account_id_v2`,...).
+
+### 14.3. Cách chạy Test
+
+```bash
+# Cài đặt pytest-asyncio trước
+pip install pytest-asyncio
+
+# Chạy toàn bộ test suite
+pytest .test_local
+```
