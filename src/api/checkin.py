@@ -66,7 +66,7 @@ async def get_checkin_info(
     """
     game_info = game.value
     
-    # Headers khác nhau cho Genshin vs Star Rail/ZZZ
+    # Headers tối giản theo pattern curl thành công
     headers = {
         **COMMON_HEADERS,
         **ORIGINS["act_hoyolab"],
@@ -131,7 +131,7 @@ async def do_checkin(
     }
     
     if game_info.signgame:  # Star Rail / ZZZ
-        headers["x-rpc-client_type"] = "5"
+        headers["x-rpc-client_type"] = "4"
         headers["x-rpc-platform"] = "4"
         headers["x-rpc-signgame"] = game_info.signgame
         json_data = {"act_id": game_info.act_id, "lang": "en-us"}

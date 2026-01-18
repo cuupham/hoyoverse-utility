@@ -62,7 +62,7 @@ class ExecutionContext:
         handler.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
         handler.setFormatter(logging.Formatter(
             fmt="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
-            datefmt="%Y-%m-%dT%H:%M:%S"
+            datefmt="%d/%m/%Y %H:%M:%S"
         ))
         
         # Override emit để force flush sau mỗi log
