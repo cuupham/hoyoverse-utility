@@ -1,4 +1,4 @@
-name: HoYoLab Daily Check-in & Redeem
+name: HoYo Flow
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Cho phép chạy manual
 
 jobs:
-  run:
+  core_flow:
     runs-on: ubuntu-latest
     environment: live
     

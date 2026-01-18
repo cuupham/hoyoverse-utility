@@ -1041,7 +1041,7 @@ def log_debug(account: str, message: str) -> None:
 hoyolab-auto/
 ├── .github/
 │   └── workflows/
-│       └── daily.yml           # GitHub Actions workflow
+│       └── hoyo-flow.yml       # GitHub Actions workflow
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                 # Entry point
