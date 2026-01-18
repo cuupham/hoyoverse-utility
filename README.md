@@ -59,6 +59,10 @@ Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; .
 ```
 ├── .github/workflows/
 │   └── daily.yml           # GitHub Actions workflow
+├── .test_local/            # Local test suite (gitignored)
+│   ├── test_checkin.py
+│   ├── test_redeem.py
+│   └── conftest.py
 ├── src/
 │   ├── main.py             # Entry point
 │   ├── config.py           # Constants & configurations
@@ -100,6 +104,10 @@ $env:ACC_1 = "your_cookie_string"  # PowerShell
 
 # Run
 python -m src.main
+
+# Test
+pip install pytest pytest-asyncio
+pytest .test_local
 ```
 
 ## 📊 Output Example
@@ -107,7 +115,7 @@ python -m src.main
 ```
 ============================================================
                     HOYOLAB AUTO TOOL
-                    2026-01-17 07:30:00
+                    18/01/2026 19:44:37
 ============================================================
 
 --- KIỂM TRA ACCOUNTS ---
