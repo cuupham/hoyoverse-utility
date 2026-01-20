@@ -53,40 +53,77 @@ async def validate_accounts(session, accounts: list[Account]) -> list[Account]:
     return valid_accounts
 
 
-async def run_checkin(session, accounts: list[Account]):
-    """Chạy check-in cho tất cả accounts"""
+async def run_checkin(session, accounts: list[Account]) -> dict[str, dict]:
+    """Chạy check-in cho tất cả accounts song song"""
+    tasks = [run_checkin_for_account(session, acc) for acc in accounts]
+    results = await asyncio.gather(*tasks)
+    return {acc.name: res for acc, res in zip(accounts, results)}
+
+
+def display_checkin(all_results: dict[str, dict]):
+    """Hiển thị kết quả check-in"""
     print_section("CHECK-IN")
-    
-    for acc in accounts:
-        log_print(f"=== {acc.name} ===")
-        await run_checkin_for_account(session, acc)
+    for acc_name, results in all_results.items():
+        log_print(f"=== {acc_name} ===")
+        for game, result in results.items():
+            status = "✓" if result["success"] else "✗"
+            if result["success"]:
+                if "trước đó" in result["message"]:
+                    msg = f"  {game.value.name}: {status} Đã điểm danh trước đó"
+                else:
+                    msg = f"  {game.value.name}: {status} {result['message']} (Ngày {result['day']})"
+            else:
+                msg = f"  {game.value.name}: ✗ {result['message']}"
+            log_print(msg)
         log_print()
 
 
-async def run_redeem(session, accounts: list[Account]):
-    """Chạy redeem cho tất cả accounts"""
+async def run_redeem_data(session, accounts: list[Account]):
+    """Chạy redeem và trả về toàn bộ dữ liệu (CDKeys, UIDs, Results)"""
+    # Fetch CDKeys
+    cdkeys = await fetch_all_cdkeys(session, accounts[0])
+    
+    # Fetch UIDs
+    tasks = [fetch_all_uids(session, acc) for acc in accounts]
+    uids_list = await asyncio.gather(*tasks)
+    account_uids = {acc.name: uids for acc, uids in zip(accounts, uids_list)}
+    
+    # Run Redeem
+    tasks = []
+    task_accounts = []
+    for acc in accounts:
+        # Chỉ chạy redeem nếu account có ít nhất 1 UID
+        if any(account_uids[acc.name].get(game) for game in Game):
+            tasks.append(run_redeem_for_account(session, acc, cdkeys, account_uids[acc.name]))
+            task_accounts.append(acc.name)
+            
+    redeem_results = await asyncio.gather(*tasks)
+    results_map = {name: res for name, res in zip(task_accounts, redeem_results)}
+    
+    return cdkeys, account_uids, results_map
+
+
+def display_redeem(cdkeys, account_uids, results_map):
+    """Hiển thị kết quả redeem"""
     print_section("REDEEM CODE")
     
-    # Fetch CDKeys sử dụng account đầu tiên
+    # 1. Hiển thị CDKeys fetched
     log_print(">> Fetching CDKeys...")
-    cdkeys = await fetch_all_cdkeys(session, accounts[0])
+    for game, codes in cdkeys.items():
+        if codes:
+            log_print(f"[SYSTEM] {game.value.name}: {len(codes)} codes {codes}")
+        else:
+            log_print(f"[SYSTEM] {game.value.name}: Không có codes")
     log_print()
     
-    # Kiểm tra có codes không
     total_codes = sum(len(codes) for codes in cdkeys.values())
     if total_codes == 0:
         log_info("SYSTEM", "Không có codes nào để redeem")
         return
-    
-    # Fetch UIDs cho tất cả accounts
+
+    # 2. Hiển thị UIDs
     log_print(">> Fetching UIDs...")
-    account_uids = {}
-    
-    for acc in accounts:
-        uids = await fetch_all_uids(session, acc)
-        account_uids[acc.name] = uids
-        
-        # Format output
+    for acc_name, uids in account_uids.items():
         uid_info = []
         for game in Game:
             game_uids = uids.get(game, {})
@@ -95,41 +132,30 @@ async def run_redeem(session, accounts: list[Account]):
                 uid_info.append(f"{game.value.name}({regions})")
         
         if uid_info:
-            log_print(f"  {acc.name}: {', '.join(uid_info)}")
+            log_print(f"  {acc_name}: {', '.join(uid_info)}")
         else:
-            log_print(f"  {acc.name}: Không có UID nào")
-    
+            log_print(f"  {acc_name}: Không có UID nào")
     log_print()
-    
-    # Kiểm tra có accounts nào có UID không
-    accounts_with_uids = [
-        acc for acc in accounts 
-        if any(account_uids[acc.name].get(game) for game in Game)
-    ]
-    
-    if not accounts_with_uids:
+
+    if not results_map:
         log_error("SYSTEM", "Tất cả accounts đều không có UID - không thể redeem!")
         return
-    
-    # Redeem cho từng account
-    for acc in accounts_with_uids:
-        log_print(f"=== {acc.name} ===")
-        uids = account_uids[acc.name]
+
+    # 3. Hiển thị kết quả redeem từng account
+    for acc_name, game_results in results_map.items():
+        log_print(f"=== {acc_name} ===")
+        uids = account_uids[acc_name]
         
-        # In game/region info trước
-        for game in Game:
-            game_uids = uids.get(game, {})
-            codes = cdkeys.get(game, [])
-            
-            if not codes or not game_uids:
-                continue
-            
+        for game, regions in game_results.items():
             log_print(f"  {game.value.name}:")
-            for region, uid in game_uids.items():
+            for region, codes_res in regions.items():
                 log_print(f"    {region}:")
-                # Redeem codes sẽ được log bởi run_redeem_for_account
-        
-        await run_redeem_for_account(session, acc, cdkeys, uids)
+                for code, res in codes_res.items():
+                    status = "✓" if res["success"] else "✗"
+                    if res.get("skipped"):
+                        log_print(f"      {code}: ⏭ Skip (đã biết expired/invalid)")
+                    else:
+                        log_print(f"      {code}: {status} {res['message']}")
         log_print()
 
 
@@ -142,7 +168,6 @@ async def main():
     
     if not env_accounts:
         log_error("SYSTEM", "Không tìm thấy account nào trong environment variables!")
-        log_error("SYSTEM", "Hãy đảm bảo có ít nhất 1 biến ACC_* với cookie string.")
         sys.exit(1)
     
     # Parse accounts
@@ -160,18 +185,28 @@ async def main():
     
     # Tạo session
     async with create_session() as session:
-        # Bước 2: Validate cookies
+        # Bước 2: Validate cookies (giữ nguyên vì nó in ra ngay lúc đầu để check)
         valid_accounts = await validate_accounts(session, accounts)
         
         if not valid_accounts:
             log_error("SYSTEM", "Tất cả cookies đều không hợp lệ!")
             sys.exit(1)
         
-        # Bước 3: Check-in và Redeem song song
-        await run_checkin(session, valid_accounts)
-        await run_redeem(session, valid_accounts)
+        # Bước 3: Chạy tất cả mọi thứ song song (không log)
+        # Gather đồng thời kết quả checkin và data redeem
+        checkin_task = run_checkin(session, valid_accounts)
+        redeem_task = run_redeem_data(session, valid_accounts)
+        
+        checkin_results, (cdkeys, account_uids, redeem_results) = await asyncio.gather(
+            checkin_task, 
+            redeem_task
+        )
+        
+        # Bước 4: Hiển thị kết quả theo thứ tự
+        display_checkin(checkin_results)
+        display_redeem(cdkeys, account_uids, redeem_results)
     
-    # Bước 4: Kết thúc
+    # Bước 5: Kết thúc
     log_print("=" * 50)
     log_print(f"DONE - {ctx.elapsed_seconds:.1f}s")
     log_print("=" * 50)

@@ -12,7 +12,6 @@ from src.models.account import Account
 from src.models.game import Game
 from src.api.client import safe_api_call
 from src.utils.helpers import current_hour, rpc_weekday
-from src.utils.logger import log_info, log_error, log_result
 
 
 async def check_cookie(session: aiohttp.ClientSession, account: Account) -> dict[str, Any]:
@@ -184,25 +183,5 @@ async def run_checkin_for_account(
     
     for game, result in zip(Game, game_results):
         results[game] = result
-        
-        # Log kết quả
-        if result["success"]:
-            if "trước đó" in result["message"]:
-                msg = f"{game.value.name}: ✓ Đã điểm danh trước đó"
-            else:
-                msg = f"{game.value.name}: ✓ {result['message']} (Ngày {result['day']})"
-        else:
-            msg = f"{game.value.name}: ✗ {result['message']}"
-        
-        log_result(
-            data={
-                "action": "checkin",
-                "game": game.value.code,
-                "account": account.name,
-                "success": result["success"],
-                "day": result["day"],
-            },
-            human_msg=f"  {msg}"
-        )
     
     return results

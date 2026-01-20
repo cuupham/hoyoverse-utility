@@ -61,7 +61,7 @@ class ExecutionContext:
         handler = logging.StreamHandler()
         handler.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
         handler.setFormatter(logging.Formatter(
-            fmt="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
+            fmt="%(asctime)s [%(levelname)s] %(message)s",
             datefmt="%d/%m/%Y %H:%M:%S"
         ))
         
