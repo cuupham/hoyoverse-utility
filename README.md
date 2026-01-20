@@ -6,10 +6,11 @@ Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game 
 
 | Feature | Mô tả |
 |---------|-------|
-| 🎁 **Auto Check-in** | Điểm danh hàng ngày nhận rewards |
+| 礼物 **Auto Check-in** | Điểm danh hàng ngày nhận rewards |
 | 🔑 **Auto Redeem** | Tự động nhập codes mới nhất |
 | 🔄 **Multi-Account** | Hỗ trợ nhiều tài khoản |
 | ⚡ **Cross-region Skip** | Skip codes hết hạn tự động |
+| 🚀 **High Performance** | Tối ưu tốc độ với kiến trúc chạy song song (Parallel) |
 
 ## 🎯 Games Supported
 
@@ -59,10 +60,12 @@ Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; .
 ```
 ├── .github/workflows/
 │   └── hoyo-flow.yml       # GitHub Actions workflow
-├── .test_local/            # Local test suite (gitignored)
+├── tests/                  # Public test suite
 │   ├── test_checkin.py
 │   ├── test_redeem.py
-│   └── conftest.py
+│   ├── conftest.py
+│   └── cookies.ps1.example  # Template cho local test
+├── .env.ps1                # Local cookie store (gitignored)
 ├── src/
 │   ├── main.py             # Entry point
 │   ├── config.py           # Constants & configurations
@@ -98,45 +101,46 @@ source .venv/bin/activate  # Linux/Mac
 # Install deps
 pip install -r requirements.txt
 
-# Set environment (local testing only)
-$env:ACC_1 = "your_cookie_string"  # PowerShell
-# export ACC_1="your_cookie_string"  # Linux/Mac
+# Set environment (local testing)
+# 1. Copy tests/cookies.ps1.example -> .env.ps1
+# 2. Điền cookies vào .env.ps1
+# 3. Chạy file:
+.\.env.ps1
 
 # Run
 python -m src.main
 
-# Test
+# Test (Mock data - không cần cookie)
 pip install pytest pytest-asyncio
-pytest .test_local
+pytest tests -v
 ```
 
 ## 📊 Output Example
 
 ```
-============================================================
-                    HOYOLAB AUTO TOOL
-                    18/01/2026 19:44:37
-============================================================
-
---- KIỂM TRA ACCOUNTS ---
-[✓] ACC_1: Hợp lệ (u***@gmail.com)
-[✓] ACC_2: Hợp lệ (a***@yahoo.com)
-
---- CHECK-IN ---
-=== ACC_1 ===
-  Genshin Impact: ✓ Điểm danh thành công (Ngày 15)
-  Honkai: Star Rail: ✓ Đã điểm danh trước đó
-  Zenless Zone Zero: ✓ Điểm danh thành công (Ngày 8)
-
---- REDEEM CODE ---
-=== ACC_1 ===
-  Genshin [asia]:
-    GENSHIN2024: ✓ Thành công
-    PRIMOGEMS100: ⏭ Skip (đã biết expired)
-
-============================================================
-Thời gian chạy: 0.7 giây
-============================================================
+20/01/2026 07:38:22 [INFO] ==================================================
+20/01/2026 07:38:22 [INFO] HOYOLAB AUTO TOOL
+20/01/2026 07:38:23 [INFO] ==================================================
+20/01/2026 07:38:23 [INFO] --- KIỂM TRA ACCOUNTS ---
+20/01/2026 07:38:23 [INFO] [✓] ACC_1: Hợp lệ (u****@gmail.com)
+20/01/2026 07:38:23 [INFO]
+20/01/2026 07:38:24 [INFO] --- CHECK-IN ---
+20/01/2026 07:38:24 [INFO] === ACC_1 ===
+20/01/2026 07:38:24 [INFO]   Genshin Impact: ✓ Điểm danh thành công (Ngày 15)
+20/01/2026 07:38:24 [INFO]   Honkai: Star Rail: ✓ Đã điểm danh trước đó
+20/01/2026 07:38:24 [INFO]
+20/01/2026 07:38:24 [INFO] --- REDEEM CODE ---
+20/01/2026 07:38:24 [INFO] >> Fetching CDKeys...
+20/01/2026 07:38:24 [INFO] [SYSTEM] Genshin Impact: 3 codes [ABC, DEF, XYZ]
+20/01/2026 07:38:24 [INFO]
+20/01/2026 07:38:24 [INFO] === ACC_1 ===
+20/01/2026 07:38:24 [INFO]   Genshin Impact:
+20/01/2026 07:38:24 [INFO]     os_asia:
+20/01/2026 07:38:24 [INFO]       ABC: ✓ Thành công
+20/01/2026 07:38:24 [INFO]
+20/01/2026 07:38:24 [INFO] ==================================================
+20/01/2026 07:38:24 [INFO] DONE - 1.1s
+20/01/2026 07:38:24 [INFO] ==================================================
 ```
 
 ## ⚠️ Lưu ý

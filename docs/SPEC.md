@@ -252,20 +252,34 @@ def unix_ms() -> int:
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  BƯỚC 3: Thực thi song song 2 công việc chính               │
-│  ┌─────────────────────┐    ┌─────────────────────────────┐ │
-│  │    CHECK-IN         │    │      REDEEM CODE            │ │
-│  │  (WORK 1)           │    │      (WORK 2)               │ │
-│  │                     │    │                             │ │
-│  │  N accounts ×       │    │  1. Fetch CDKeys (3 luồng)  │ │
-│  │  3 games =          │    │  2. Fetch UIDs (N×12 luồng) │ │
-│  │  N×3 luồng          │    │  3. Redeem (phức tạp)       │ │
-│  └─────────────────────┘    └─────────────────────────────┘ │
+│  BƯỚC 3: Thực thi Song song theo Từng cụm (Silent Phase)     │
+│  │                                                          │
+│  │  Tất cả các hàm API chỉ trả về data (Dictionary),        │
+│  │  KHÔNG in log trực tiếp ra console để tránh xen kẽ.      │
+│  │                                                          │
+│  ├─[Cụm A] CHECK-IN: N accounts × 3 games (Song song)       │
+│  └─[Cụm B] REDEEM Logic:                                    │
+│  │  1. Fetch CDKeys (Song song 3 games)                     │
+│  │  2. Fetch UIDs (Song song N accounts)                    │
+│  │  3. Exchange codes (Parallel games, Sequential regions)   │
+│  │                                                          │
+│  │  **LƯU Ý BẢO MẬT:** Bước 3.1 và 3.2 chạy TUẦN TỰ để tránh│
+│  │  tạo Spike requests lớn (Spam API), giúp tool an toàn    │
+│  │  và tránh bị HoYoLab hệ thống anti-bot gắn cờ.           │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  BƯỚC 4: In báo cáo kết quả ra console                      │
+│  BƯỚC 4: Hiển thị báo cáo kết quả (Sequenced Display)       │
+│  │                                                          │
+│  │  Dữ liệu từ Bước 3 được gom lại và in theo thứ tự:       │
+│  │  1. In toàn bộ Section CHECK-IN                          │
+│  │  2. In toàn bộ Section REDEEM CODE                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  BƯỚC 5: Kết thúc chương trình                              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -297,7 +311,7 @@ headers = {
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"UserSettingPage","sourceType":"RewardsInfo","sourceId":"","sourceArrangement":"","sourceGameId":""}',
     "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": "Asia/Bangkok",
+    "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
 }
 ```
@@ -476,7 +490,7 @@ headers = {
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
     "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": "Asia/Bangkok",
+    "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
 }
 ```
@@ -522,7 +536,7 @@ headers = {
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
     "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": "Asia/Bangkok",
+    "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
 }
 ```
@@ -575,7 +589,7 @@ headers = {
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
     "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": "Asia/Bangkok",
+    "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
 }
 ```
@@ -681,78 +695,55 @@ Game Genshin:
 ```
 ============================================================
                     HOYOLAB AUTO TOOL
-                    2026-01-17 07:30:00
+                    20/01/2026 07:50:58
+                    Trace: a83cd482
 ============================================================
 
 --- KIỂM TRA ACCOUNTS ---
-[✓] ACC_1: Hợp lệ (u***@gmail.com)
-[✓] ACC_2: Hợp lệ (a***@yahoo.com)
-[✗] ACC_3: Cookie hết hạn
-[✓] ACC_4: Hợp lệ (x***@hotmail.com)
+[✓] ACC_1: Hợp lệ (c****u9991@gmail.com)
+[✓] ACC_2: Hợp lệ (c****00001@gmail.com)
+[✓] ACC_3: Hợp lệ (p****66720@nrlord.com)
+[✓] ACC_4: Hợp lệ (n****uck15@gmail.com)
 
-Tổng: 3/4 accounts hợp lệ
+Tổng: 4/4 accounts hợp lệ
 
-============================================================
 --- CHECK-IN ---
-============================================================
 
 === ACC_1 ===
-  Genshin:    ✓ Điểm danh thành công (Ngày 15)
-  Star Rail:  ✓ Đã điểm danh trước đó
-  ZZZ:        ✓ Điểm danh thành công (Ngày 8)
+  Genshin Impact: ✗ No in-game character detected, create one first
+  Honkai: Star Rail: ✓ Đã điểm danh trước đó
+  Zenless Zone Zero: ✓ Đã điểm danh trước đó
 
 === ACC_2 ===
-  Genshin:    ✓ Điểm danh thành công (Ngày 20)
-  ZZZ:        ✗ Lỗi: Account not found
+  Genshin Impact: ✓ Đã điểm danh trước đó
+  Honkai: Star Rail: ✓ Đã điểm danh trước đó
+  Zenless Zone Zero: ✓ Đã điểm danh trước đó
 
-=== ACC_4 ===
-  Genshin:    ✓ Đã điểm danh trước đó
-  Star Rail:  ✓ Điểm danh thành công (Ngày 3)
-  ZZZ:        ✓ Điểm danh thành công (Ngày 3)
-
-============================================================
 --- REDEEM CODE ---
-============================================================
 
 >> Fetching CDKeys...
-  Genshin:    3 codes [GENSHIN1, GENSHIN2, GENSHIN3]
-  Star Rail:  3 codes [STARRAIL1, STARRAIL2, STARRAIL3]
-  ZZZ:        1 code  [ZZZCODE1]
+[SYSTEM] Genshin Impact: Không có codes
+[SYSTEM] Honkai: Star Rail: Không có codes
+[SYSTEM] Zenless Zone Zero: Không có codes
 
->> Fetching UIDs...
-  ACC_1: Genshin(asia, usa), StarRail(asia), ZZZ(asia)
-  ACC_2: Genshin(asia), ZZZ(asia, euro)
-  ACC_4: Genshin(usa), StarRail(asia, usa, euro)
-
-=== ACC_1 ===
-  Genshin:
-    asia:
-      GENSHIN1: ✓ Thành công
-      GENSHIN2: ✓ Thành công
-      GENSHIN3: ✗ Code đã sử dụng
-    usa:
-      GENSHIN1: ✓ Thành công
-      GENSHIN2: ✓ Thành công
-      GENSHIN3: ✓ Thành công
-  Star Rail:
-    asia:
-      STARRAIL1: ✓ Thành công
-      STARRAIL2: ✓ Thành công
-      STARRAIL3: ✓ Thành công
-  ZZZ:
-    asia:
-      ZZZCODE1: ✓ Thành công
-
-=== ACC_2 ===
-  ...
-
+[SYSTEM] Không có codes nào để redeem
 ============================================================
---- KẾT THÚC ---
-Thời gian chạy: 45 giây
+DONE - 1.0s
 ============================================================
 ```
 
-### 7.1. Dual Output Mode (LOG_LEVEL)
+### 7.1. Chiến lược Centrailized Logging (Gom log)
+
+Để tối ưu hiệu năng (chạy song song) mà vẫn giữ log dễ đọc, tool áp dụng chiến lược:
+
+1.  **API functions:** Chỉ thực thi logic và `return` kết quả dưới dạng dictionary. Không gọi các hàm in log.
+2.  **Display functions:** Các hàm `display_checkin()` và `display_redeem()` trong `main.py` nhận kết quả thô và định dạng chúng thành các block log đẹp mắt.
+
+**Lợi ích:**
+- Không bị xen kẽ (interleave) log khi nhiều account chạy cùng lúc.
+- Tốc độ xử lý song song nhưng hiển thị tuần tự cho con người dễ đọc.
+
+### 7.2. Dual Output Mode (LOG_LEVEL)
 
 Hỗ trợ 2 format output thông qua environment variable `LOG_LEVEL`:
 
@@ -814,14 +805,10 @@ log_result(
 **Output theo mode:**
 ```bash
 # LOG_LEVEL=human (default)
-2026-01-17T07:30:00 [abc12345][INFO]   Genshin:    ✓ Điểm danh thành công (Ngày 15)
+20/01/2026 07:50:59 [INFO]   Genshin Impact: ✓ Đã điểm danh trước đó
 
 # LOG_LEVEL=json
-{"action":"checkin","game":"gs","account":"ACC_1","status":"success","day":15,"trace_id":"abc12345","timestamp":"2026-01-17T07:30:05"}
-
-# LOG_LEVEL=both
-2026-01-17T07:30:00 [abc12345][INFO]   Genshin:    ✓ Điểm danh thành công (Ngày 15)
-{"action":"checkin","game":"gs","account":"ACC_1","status":"success","day":15,"trace_id":"abc12345","timestamp":"2026-01-17T07:30:05"}
+{"action":"checkin","game":"gs","account":"ACC_2","status":"success","trace_id":"a83cd482","timestamp":"2026-01-20T07:50:59.123"}
 ```
 
 **GitHub Actions workflow:**
@@ -914,7 +901,7 @@ async def safe_api_call(
     
     for attempt in range(max_retries):
         try:
-            async with SEMAPHORE:
+            async with _get_semaphore():  # Lazy init semaphore
                 async with session.request(method, url, **kwargs) as resp:
                     if resp.status == 429:  # Rate limited
                         await asyncio.sleep(RATE_LIMIT_DELAY)
@@ -986,14 +973,25 @@ class ExecutionContext:
         return cls._instance
     
     def _setup_logging(self) -> None:
-        """Setup logging với trace_id filter"""
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s [%(trace_id)s][%(levelname)s] %(message)s",
-            datefmt="%d/%m/%Y %H:%M:%S",  # Kiểu Việt Nam
-        )
-        # Thêm filter vào root logger
-        logging.getLogger().addFilter(TraceIdFilter(self.trace_id))
+        """Setup logging với trace_id filter và force flush"""
+        # Tạo custom handler với force flush
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            fmt="%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%d/%m/%Y %H:%M:%S"
+        ))
+        
+        # Override emit để force flush sau mỗi log
+        original_emit = handler.emit
+        def flush_emit(record):
+            original_emit(record)
+            handler.flush()
+        handler.emit = flush_emit
+        
+        # Cấu hình root logger
+        root_logger = logging.getLogger()
+        root_logger.addHandler(handler)
+        root_logger.addFilter(TraceIdFilter(self.trace_id))
     
     @property
     def elapsed_seconds(self) -> float:
@@ -1023,15 +1021,26 @@ def log_debug(account: str, message: str) -> None:
 
 **Output example:**
 ```
-2026-01-17T07:30:00 [abc12345][INFO] [ACC_1] Checkin Genshin: Success
-2026-01-17T07:30:00 [abc12345][INFO] [ACC_1] Checkin Star Rail: Already signed
-2026-01-17T07:30:01 [abc12345][ERROR] [ACC_2] Cookie expired
+20/01/2026 07:50:59 [INFO] [ACC_1] Check-in Zenless Zone Zero: ✓ Đã điểm danh trước đó
+20/01/2026 07:50:59 [ERROR] [ACC_2] Cookie expired
 ```
 
 **Lợi ích:**
 - Tất cả logs cùng execution có chung `trace_id`
 - Dễ filter logs theo execution run trong GitHub Actions
 - Dễ tính execution time (từ `start_time`)
+
+### 8.7. Decoupled Display Pattern
+
+Khi phát triển luồng mới, tuân thủ nguyên tắc:
+1. Hàm thực thi (API/Service) trả về `dict` hoặc `list`.
+2. Hàm hiển thị (Display) nhận dữ liệu đó và dùng `log_print()` để in ra.
+
+```python
+# Ví dụ pattern chuẩn trong main.py
+results = await run_something_parallel(accounts)
+display_something(results)  # In ra tuần tự
+```
 
 ---
 
@@ -1061,6 +1070,12 @@ hoyolab-auto/
 │       ├── helpers.py          # Helper functions
 │       ├── logger.py           # Logging utilities
 │       └── security.py         # Mask sensitive data
+├── tests/                      # Unit tests & Mocks
+│   ├── conftest.py
+│   ├── test_checkin.py
+│   ├── test_redeem.py
+│   ├── test_core.py
+│   └── cookies.ps1.example
 ├── requirements.txt
 └── README.md
 ```
@@ -1076,14 +1091,14 @@ hoyolab-auto/
 ```python
 # src/utils/security.py
 
-def mask_uid(uid: str) -> str:
+def mask_uid(uid: str | int | None) -> str:
     """
     Mask UID: 123456789 → 123***789
     """
     if not uid:
         return "***"
     uid = str(uid)
-    if len(uid) <= 6:
+    if len(uid) <= MIN_UID_LENGTH:
         return "***"
     return f"{uid[:3]}***{uid[-3:]}"
 ```
@@ -1101,8 +1116,8 @@ log_info(acc.name, f"Hợp lệ ({email_mask})")
 log_info(acc.name, f"Genshin: UID {mask_uid(uid)}")
 
 # Output:
-# 2026-01-17T07:30:00 [abc12345][INFO] [ACC_1] Hợp lệ (u***34@gmail.com)
-# 2026-01-17T07:30:00 [abc12345][INFO] [ACC_1] Genshin: UID 123***789
+# 20/01/2026 07:50:58 [INFO] [ACC_1] Hợp lệ (u***34@gmail.com)
+# 20/01/2026 07:50:58 [INFO] [ACC_1] Genshin Impact: Character UID 123***789
 ```
 
 ---
@@ -1263,8 +1278,8 @@ url = URLS['checkin_sign'][game.value.code]  # gs, sr, zzz
 ## 10. Dependencies
 
 ```txt
-aiohttp>=3.9.0        # Async HTTP client
-fake-useragent>=1.5.0 # Dynamic User-Agent headers
+aiohttp>=3.13.3        # Async HTTP client
+fake-useragent>=2.2.0 # Dynamic User-Agent headers
 ```
 
 ### 10.1. Lấy biến môi trường (không cần thư viện)
@@ -1471,12 +1486,12 @@ Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra
 ### 14.1. Cấu trúc Testing
 
 ```
-.test_local/
+tests/
 ├── conftest.py          # Fixtures & Mock data chung
 ├── test_checkin.py      # Test logic điểm danh (Sol/Luna)
 ├── test_redeem.py       # Test logic đổi code & cross-region skip
-├── test_fetch_cdkeys.py # Test logic lấy code từ HoYoLab
-└── test_core.py        # Test models, utils và session isolation
+├── test_core.py         # Test models, utils và session isolation
+└── cookies.ps1.example  # Template hướng dẫn set cookies local
 ```
 
 ### 14.2. Các kịch bản Test quan trọng
@@ -1493,5 +1508,5 @@ Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra
 pip install pytest-asyncio
 
 # Chạy toàn bộ test suite
-pytest .test_local
+pytest tests
 ```

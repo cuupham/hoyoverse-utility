@@ -8,8 +8,6 @@ from src.models.account import Account
 from src.models.game import Game, REGIONS
 from src.api.client import safe_api_call
 from src.utils.helpers import current_hour, rpc_weekday, unix_ms
-from src.utils.logger import log_info, log_error, log_result
-from src.utils.security import mask_uid
 
 
 async def fetch_cdkeys(
@@ -85,10 +83,6 @@ async def fetch_all_cdkeys(
     cdkeys = {}
     for game, codes in zip(Game, results):
         cdkeys[game] = codes
-        if codes:
-            log_info("SYSTEM", f"{game.value.name}: {len(codes)} codes {codes}")
-        else:
-            log_info("SYSTEM", f"{game.value.name}: Không có codes")
     
     return cdkeys
 
@@ -282,38 +276,10 @@ async def redeem_codes_for_region(
                 "message": "⏭ Đã skip (expired/invalid từ region trước)",
                 "skipped": True,
             }
-            log_result(
-                data={
-                    "action": "redeem",
-                    "game": game.value.code,
-                    "region": region_code,
-                    "account": account.name,
-                    "uid": mask_uid(uid),
-                    "code": code,
-                    "success": False,
-                    "skipped": True,
-                },
-                human_msg=f"      {code}: ⏭ Skip (đã biết expired/invalid)"
-            )
             continue
         
         result = await exchange_cdkey(session, account, game, region_code, uid, code)
         results[code] = result
-        
-        # Log kết quả
-        status = "✓" if result["success"] else "✗"
-        log_result(
-            data={
-                "action": "redeem",
-                "game": game.value.code,
-                "region": region_code,
-                "account": account.name,
-                "uid": mask_uid(uid),
-                "code": code,
-                "success": result["success"],
-            },
-            human_msg=f"      {code}: {status} {result['message']}"
-        )
         
         # Check if this code should be marked as globally expired
         retcode = result.get("retcode")
@@ -322,9 +288,6 @@ async def redeem_codes_for_region(
         
         # Check if should skip remaining codes (e.g., -2011 = chưa đủ rank)
         if result.get("skip_remaining"):
-            remaining = len(codes) - i - 1
-            if remaining > 0:
-                log_info(account.name, f"      ⏭ Skip {remaining} codes còn lại ({result['message']})")
             break
         
         # Delay 5s giữa mỗi code (trừ code cuối)
@@ -356,8 +319,6 @@ async def _redeem_game_for_account(
     
     # Process regions SEQUENTIALLY to enable cross-region skip
     for region, uid in game_uids.items():
-        log_info(account.name, f"    [{game.value.code}][{region}]:")
-        
         region_result = await redeem_codes_for_region(
             session, account, game, region, uid, codes,
             globally_expired_codes=globally_expired_codes
@@ -399,7 +360,6 @@ async def run_redeem_for_account(
             games_to_redeem.append((game, codes, game_uids))
     
     if not games_to_redeem:
-        log_info(account.name, "Không có game/region nào để redeem")
         return {}
     
     # Run ALL GAMES in PARALLEL
