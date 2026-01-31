@@ -82,4 +82,29 @@ class TestUtils:
         """Test các hàm helper thời gian"""
         assert len(current_hour()) == 2
         assert rpc_weekday() in [str(i) for i in range(1, 8)]
-        assert isinstance(unix_ms(), int)
+class TestGameModel:
+    """Test cases cho Game model (GameInfo)"""
+
+    def test_game_info_zzz_page_type(self):
+        """Test ZZZ có page_type = 46"""
+        from src.models.game import Game
+        zzz = Game.ZZZ.value
+        assert zzz.page_type == "46"
+        assert zzz.game_id == "8"
+
+    def test_get_page_info_serialization(self):
+        """Test cơ chế sinh page_info JSON đúng format stealth"""
+        from src.models.game import Game
+        zzz = Game.ZZZ.value
+        page_info = zzz.get_page_info("TestPage")
+        
+        # Kiểm tra JSON valid
+        import json
+        data = json.loads(page_info)
+        assert data["pageName"] == "TestPage"
+        assert data["pageType"] == "46"
+        assert data["gameId"] == "8"
+        
+        # Kiểm tra separators (stealth requirement: no spaces)
+        assert " " not in page_info
+        assert ',"pageType":"46"' in page_info

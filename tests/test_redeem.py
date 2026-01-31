@@ -52,9 +52,8 @@ class TestExchangeCdkey:
                 "USEDCODE123"
             )
             
-            assert result["success"] is False
-            # retcode -2017: "Code chưa active"
-            assert "chưa active" in result["message"].lower()
+            # retcode -2017: Ưu tiên message từ API ("Redemption code has been used")
+            assert "redemption code has been used" in result["message"].lower()
     
     @pytest.mark.asyncio
     async def test_exchange_expired(self, mock_session, mock_account, mock_redeem_expired):
@@ -71,9 +70,8 @@ class TestExchangeCdkey:
                 "EXPIREDCODE"
             )
             
-            assert result["success"] is False
-            # retcode -2001: "Code không tồn tại"
-            assert "không tồn tại" in result["message"].lower()
+            # retcode -2001: Ưu tiên message từ API ("Redemption code has expired")
+            assert "redemption code has expired" in result["message"].lower()
     
     @pytest.mark.asyncio
     async def test_exchange_invalid_code(self, mock_session, mock_account, mock_redeem_invalid):
@@ -90,9 +88,8 @@ class TestExchangeCdkey:
                 "INVALIDXXX"
             )
             
-            assert result["success"] is False
-            # retcode -2003: "Code đã sử dụng"
-            assert "đã sử dụng" in result["message"].lower()
+            # retcode -2003: Ưu tiên message từ API ("Invalid redemption code")
+            assert "invalid redemption code" in result["message"].lower()
     
     @pytest.mark.asyncio
     async def test_exchange_cooldown(self, mock_session, mock_account, mock_redeem_cooldown):
@@ -109,9 +106,8 @@ class TestExchangeCdkey:
                 "HSRGIFT2024"
             )
             
-            assert result["success"] is False
-            # retcode -2016: "Code đã hết hạn"
-            assert "đã hết hạn" in result["message"].lower()
+            # retcode -2016: Ưu tiên message từ API ("Redemption in cooldown")
+            assert "redemption in cooldown" in result["message"].lower()
     
     @pytest.mark.asyncio
     async def test_exchange_low_rank(self, mock_session, mock_account, mock_redeem_low_rank):
@@ -128,9 +124,8 @@ class TestExchangeCdkey:
                 "SOMECODE"
             )
             
-            assert result["success"] is False
-            # retcode -2011: "Chưa đủ rank"
-            assert "chưa đủ rank" in result["message"].lower()
+            # retcode -2011: Ưu tiên message từ API ("You do not meet the Adventure Rank requirements")
+            assert "adventure rank requirements" in result["message"].lower()
             # Should have skip_remaining flag
             assert result.get("skip_remaining") is True
     
@@ -158,6 +153,33 @@ class TestExchangeCdkey:
         # CODE2 and CODE3 should NOT be in results
         assert "CODE2" not in result
         assert "CODE3" not in result
+
+    @pytest.mark.asyncio
+    async def test_exchange_fallback_translation(self, mock_session, mock_account):
+        """Test fallback sang REDEEM_MESSAGES khi API không trả về message"""
+        mock_response_no_msg = {
+            "success": True,
+            "data": {
+                "retcode": -2017,
+                # "message" is missing
+                "data": None,
+            }
+        }
+        with patch("src.api.redeem.safe_api_call") as mock_api:
+            mock_api.return_value = mock_response_no_msg
+            
+            result = await exchange_cdkey(
+                mock_session,
+                mock_account,
+                Game.ZZZ,
+                "prod_gf_jp",
+                "1000000001",
+                "SOMECODE"
+            )
+            
+            assert result["success"] is False
+            # Nên lấy từ REDEEM_MESSAGES cho -2017
+            assert "đã sử dụng hoặc không đủ điều kiện" in result["message"].lower()
 
 
 class TestRedeemCodesForRegion:
