@@ -36,7 +36,7 @@ async def fetch_cdkeys(
         "x-rpc-hour": current_hour(),
         "x-rpc-language": "en-us",
         "x-rpc-lrsag": "",
-        "x-rpc-page_info": '{"pageName":"","pageType":"","pageId":"","pageArrangement":"","gameId":""}',
+        "x-rpc-page_info": game_info.get_page_info(""),
         "x-rpc-page_name": "",
         "x-rpc-show-translated": "false",
         "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -113,6 +113,7 @@ async def fetch_uid(
         "x-rpc-hour": current_hour(),
         "x-rpc-language": "en-us",
         "x-rpc-lrsag": "",
+        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
         "x-rpc-page_name": "HomeGamePage",
         "x-rpc-show-translated": "false",
         "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -197,6 +198,7 @@ async def exchange_cdkey(
         "x-rpc-hour": current_hour(),
         "x-rpc-language": "en-us",
         "x-rpc-lrsag": "",
+        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
         "x-rpc-page_name": "HomeGamePage",
         "x-rpc-show-translated": "false",
         "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -232,7 +234,7 @@ async def exchange_cdkey(
     
     return {
         "success": False, 
-        "message": REDEEM_MESSAGES.get(retcode, data.get("message", f"Error {retcode}")),
+        "message": data.get("message") or REDEEM_MESSAGES.get(retcode, f"Error {retcode}"),
         "skip_remaining": retcode in SKIP_REMAINING_RETCODES,
         "retcode": retcode,  # Return retcode to allow cross-region skip logic
     }

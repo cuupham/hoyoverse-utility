@@ -70,6 +70,7 @@ async def get_checkin_info(
         **COMMON_HEADERS,
         **ORIGINS["act_hoyolab"],
         "Cookie": account.cookie_str,
+        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
     }
     
     if game_info.signgame:  # Star Rail / ZZZ
@@ -127,6 +128,7 @@ async def do_checkin(
         **COMMON_HEADERS,
         **ORIGINS["act_hoyolab"],
         "Cookie": account.cookie_str,
+        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
     }
     
     if game_info.signgame:  # Star Rail / ZZZ
@@ -140,6 +142,7 @@ async def do_checkin(
         headers["x-rpc-device_id"] = account.hyv_uuid
         headers["x-rpc-device_name"] = ""
         headers["x-rpc-lrsag"] = ""
+        headers["x-rpc-page_info"] = game_info.get_page_info("HomeGamePage")
         headers["x-rpc-platform"] = "4"
         json_data = {"act_id": game_info.act_id}
     
