@@ -198,6 +198,7 @@ COMMON_HEADERS = {
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-site",
+    "priority": "u=1, i", # Header mới để tăng độ stealth
 }
 ```
 
@@ -306,7 +307,7 @@ headers = {
     "x-rpc-hour": current_hour(),
     "x-rpc-language": "en-us",
     "x-rpc-lrsag": "",
-    "x-rpc-page_info": '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}',
+    "x-rpc-page_info": game_info.get_page_info("HomePage"), # Sinh động từ GameInfo
     "x-rpc-page_name": "HomePage",
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"UserSettingPage","sourceType":"RewardsInfo","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -485,7 +486,7 @@ headers = {
     "x-rpc-hour": current_hour(),
     "x-rpc-language": "en-us",
     "x-rpc-lrsag": "",
-    "x-rpc-page_info": '{"pageName":"","pageType":"","pageId":"","pageArrangement":"","gameId":""}',
+    "x-rpc-page_info": game_info.get_page_info(""),
     "x-rpc-page_name": "",
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -532,6 +533,7 @@ headers = {
     "x-rpc-hour": current_hour(),
     "x-rpc-language": "en-us",
     "x-rpc-lrsag": "",
+    "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
     "x-rpc-page_name": "HomeGamePage",
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -585,6 +587,7 @@ headers = {
     "x-rpc-hour": current_hour(),
     "x-rpc-language": "en-us",
     "x-rpc-lrsag": "",
+    "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
     "x-rpc-page_name": "HomeGamePage",
     "x-rpc-show-translated": "false",
     "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
@@ -848,7 +851,7 @@ log_result(
 
 ### 8.2. Response Codes thường gặp
 
-| retcode | Ý nghĩa | Hành động |
+| `retcode` | Ý nghĩa | Hành động |
 |---------|---------|----------|
 | `0` | Thành công | ✅ Tiếp tục |
 | `-1` | Lỗi chung | ⚠️ Log và tiếp tục |
@@ -857,7 +860,11 @@ log_result(
 | `-2003` | Code đã được sử dụng | ⚠️ Log và tiếp tục |
 | `-2011` | Chưa đủ rank/level | ⏭ Skip các codes còn lại trong region |
 | `-2016` | Code đã hết hạn | ⏭ Skip code ở tất cả regions |
-| `-2017` | Code chưa active | ⚠️ Log và tiếp tục |
+| `-2017` | Đã sử dụng hoặc không đủ điều kiện (Level/Rank) | ⚠️ Log và tiếp tục |
+
+> [!TIP]
+> **Thứ tự ưu tiên tin nhắn lỗi:** 
+> Luôn hiển thị thông báo trả về trực tiếp từ API HoYoLab (`data.message`) trước. Chỉ khi server không gửi thông báo mới sử dụng bảng dịch dự phòng trên.
 
 
 ### 8.4. Exception Handling Pattern với Retry
@@ -1140,8 +1147,20 @@ class GameInfo:
     name: str              # Tên hiển thị
     game_id: str           # ID dùng trong API
     act_id: str            # Act ID cho check-in
-    game_biz: str          # Game biz string
+    game_biz: str           # Game biz string
     signgame: str | None   # Signgame header (None cho Genshin)
+    page_type: str = ""    # Type trang cụ thể (vd: ZZZ=46)
+
+    def get_page_info(self, page_name: str = "HomeGamePage") -> str:
+        """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động"""
+        import json
+        return json.dumps({
+            "pageName": page_name,
+            "pageType": self.page_type,
+            "pageId": "",
+            "pageArrangement": "Hot" if page_name == "HomeGamePage" else "",
+            "gameId": self.game_id
+        }, separators=(',', ':'))
 
 class Game(Enum):
     """Enum các game được hỗ trợ - Type-safe, IDE autocomplete"""
@@ -1168,6 +1187,7 @@ class Game(Enum):
         act_id='e202406031448091',
         game_biz='nap_global',
         signgame='zzz',
+        page_type='46',
     )
 
 # ==================== REGIONS ====================
@@ -1510,3 +1530,16 @@ pip install pytest-asyncio
 # Chạy toàn bộ test suite
 pytest tests
 ```
+
+---
+
+## 15. Roadmap & Tương lai (Planned)
+
+### 🚀 Smart Version Detection
+Tự động săn phiên bản HoYoLab mới nhất từ App Store (iTunes API lookup ID `1559483982`) để thay thế việc set cứng `APP_VERSION`. Điều này giúp bypass các đợt cập nhật app bất ngờ của HoYoverse.
+
+### 🌎 Standardized Local Timezone
+Tự động lấy múi giờ hệ thống (Local Timezone) thay vì mặc định `Asia/Saigon`. Đảm bảo tính nhất quán khi người dùng chạy tool ở các khu vực khác nhau trên thế giới.
+
+### 🧹 Clean Logistics Report
+Cải thiện hiển thị: Tự động ẩn danh sách các account không có nhân vật/UID hợp lệ trong phần Redeem Code để báo cáo gọn gàng, chuyên nghiệp hơn.
