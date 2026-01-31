@@ -143,6 +143,8 @@ def display_redeem(cdkeys, account_uids, results_map):
 
     # 3. Hiển thị kết quả redeem từng account
     for acc_name, game_results in results_map.items():
+        if not game_results:
+            continue
         log_print(f"=== {acc_name} ===")
         uids = account_uids[acc_name]
         

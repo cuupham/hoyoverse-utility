@@ -10,6 +10,7 @@ COMMON_HEADERS = {
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-site",
+    "priority": "u=1, i",
 }
 
 # ==================== ORIGINS ====================
@@ -63,7 +64,7 @@ CONNECT_TIMEOUT = 10      # Connection timeout
 MAX_RETRIES = 3           # Retry attempts
 RATE_LIMIT_DELAY = 5      # Seconds to wait when rate limited (429)
 MIN_UID_LENGTH = 6        # UIDs shorter than this are masked entirely
-DEFAULT_TIMEZONE = "Asia/Bangkok"  # Timezone for x-rpc-timezone header
+DEFAULT_TIMEZONE = "Asia/Saigon"  # Khớp với curl của bạn
 
 # ==================== REDEEM MESSAGES (i18n ready) ====================
 REDEEM_MESSAGES = {
@@ -72,7 +73,7 @@ REDEEM_MESSAGES = {
     -2003: "Code đã sử dụng",
     -2011: "Chưa đủ rank",
     -2016: "Code đã hết hạn",
-    -2017: "Code chưa active",
+    -2017: "Đã sử dụng hoặc không đủ điều kiện (Level/Rank)",
 }
 
 # Retcodes để skip trong 1 region (không thử các codes còn lại trong region này)
