@@ -12,6 +12,18 @@ class GameInfo:
     act_id: str            # Act ID cho check-in
     game_biz: str          # Game biz string
     signgame: str | None   # Signgame header (None cho Genshin)
+    page_type: str = ""    # Type trang cụ thể (vd: ZZZ=46)
+
+    def get_page_info(self, page_name: str = "HomeGamePage") -> str:
+        """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động"""
+        import json
+        return json.dumps({
+            "pageName": page_name,
+            "pageType": self.page_type,
+            "pageId": "",
+            "pageArrangement": "Hot" if page_name == "HomeGamePage" else "",
+            "gameId": self.game_id
+        }, separators=(',', ':'))
 
 
 class Game(Enum):
@@ -39,6 +51,7 @@ class Game(Enum):
         act_id='e202406031448091',
         game_biz='nap_global',
         signgame='zzz',
+        page_type='46',  # Theo curl captured
     )
 
 
