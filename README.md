@@ -1,18 +1,19 @@
 # 🎮 HoYoLab Auto Tool
 
-Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game Hoyoverse thông qua GitHub Actions.
+Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game HoYoverse thông qua GitHub Actions.
 
-## ✨ Features
+## ✨ Tính năng
 
-| Feature | Mô tả |
-|---------|-------|
-| 礼物 **Auto Check-in** | Điểm danh hàng ngày nhận rewards |
-| 🔑 **Auto Redeem** | Tự động nhập codes mới nhất |
+| Tính năng | Mô tả |
+|-----------|-------|
+| 🎁 **Auto Check-in** | Điểm danh hàng ngày nhận phần thưởng |
+| 🔑 **Auto Redeem** | Tự động nhập mã code mới nhất |
 | 🔄 **Multi-Account** | Hỗ trợ nhiều tài khoản |
-| ⚡ **Cross-region Skip** | Skip codes hết hạn tự động |
-| 🚀 **High Performance** | Tối ưu tốc độ với kiến trúc chạy song song (Parallel) |
+| ⚡ **Cross-region Skip** | Tự động bỏ qua code hết hạn |
+| 🚀 **High Performance** | Tối ưu tốc độ với kiến trúc song song (Parallel) |
+| 🛡️ **Stealth Mode** | Header động tránh bị phát hiện |
 
-## 🎯 Games Supported
+## 🎯 Game được hỗ trợ
 
 | Game | Check-in | Redeem |
 |------|----------|--------|
@@ -20,11 +21,37 @@ Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game 
 | Honkai: Star Rail | ✅ | ✅ |
 | Zenless Zone Zero | ✅ | ✅ |
 
-## 🚀 Quick Start
+## 🏗️ Kiến trúc hệ thống
+
+```mermaid
+flowchart TD
+    A[🚀 Khởi động] --> B[📖 Đọc ACC_* từ Env]
+    B --> C{Account?}
+    C -->|Không| X[❌ Thoát]
+    C -->|Có| D[✅ Validate Cookie]
+    D --> E{Valid?}
+    E -->|Không| Y[❌ Báo lỗi]
+    E -->|Có| F[⚡ Song song hóa]
+    
+    F --> G1[🎁 Check-in]
+    F --> G2[🔑 Fetch CDKeys]
+    F --> G3[🔑 Fetch UIDs]
+    
+    G1 --> H1[📊 Gom kết quả]
+    G2 --> H2[📊 Gom kết quả]
+    G3 --> H2
+    
+    H1 --> I[📋 Hiển thị báo cáo]
+    H2 --> I
+    
+    I --> J[✅ Hoàn thành]
+```
+
+## 🚀 Bắt đầu nhanh
 
 ### 1. Fork Repository
 
-Click **Fork** ở góc phải trên.
+Click **Fork** ở góc phải trên GitHub.
 
 ### 2. Lấy Cookie
 
@@ -38,7 +65,7 @@ Click **Fork** ở góc phải trên.
 Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; ...
 ```
 
-> ⚠️ Cookie này sẽ dán vào GitHub Secrets
+> ⚠️ **Lưu ý:** Cookie này sẽ dán vào GitHub Secrets - KHÔNG commit vào code!
 
 ### 3. Thêm Secrets
 
@@ -55,67 +82,63 @@ Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; .
 - **Tự động**: Mỗi ngày lúc **4:45 AM (UTC+7)**
 - **Thủ công**: **Actions** → **Daily Run** → **Run workflow**
 
-## 📁 Project Structure
+## 📁 Cấu trúc dự án
 
 ```
+hoyoverse-utility/
 ├── .github/workflows/
-│   └── hoyo-flow.yml       # GitHub Actions workflow
-├── tests/                  # Public test suite
-│   ├── test_checkin.py
-│   ├── test_redeem.py
-│   ├── conftest.py
-│   └── cookies.ps1.example  # Template cho local test
-├── .env.ps1                # Local cookie store (gitignored)
+│   └── hoyo-flow.yml          # GitHub Actions workflow
 ├── src/
-│   ├── main.py             # Entry point
-│   ├── config.py           # Constants & configurations
+│   ├── main.py                # Entry point chính
+│   ├── config.py              # Cấu hình tập trung
 │   ├── api/
-│   │   ├── client.py       # HTTP client (retry, semaphore)
-│   │   ├── checkin.py      # Check-in APIs
-│   │   └── redeem.py       # Redeem code APIs
+│   │   ├── client.py         # HTTP client với retry & semaphore
+│   │   ├── checkin.py        # API điểm danh
+│   │   └── redeem.py         # API nhập code
 │   ├── models/
-│   │   ├── account.py      # Account model
-│   │   └── game.py         # Game & Region models
+│   │   ├── account.py        # Model tài khoản
+│   │   └── game.py           # Model game & region
 │   └── utils/
-│       ├── headers.py      # Dynamic User-Agent headers
-│       ├── helpers.py      # Helper functions
-│       ├── logger.py       # Logging utilities
-│       └── security.py     # Mask sensitive data
-├── docs/
-│   └── SPEC.md             # Technical specification
-└── requirements.txt
+│       ├── headers.py         # Dynamic User-Agent
+│       ├── helpers.py         # Hàm tiện ích
+│       ├── logger.py         # Logging với trace_id
+│       └── security.py        # Mask dữ liệu nhạy cảm
+├── tests/                      # Test suite
+├── docs/                       # Tài liệu kỹ thuật
+├── requirements.txt           # Dependencies
+└── README.md                  # File này
 ```
 
-## 🔧 Local Development
+## 🔧 Phát triển local
 
 ```bash
 # Clone
-git clone https://github.com/cuupham/hoyoverse-utility.git
+git clone https://github.com/your-username/hoyoverse-utility.git
 cd hoyoverse-utility
 
-# Create venv
+# Tạo virtual environment
 python -m venv .venv
 .\.venv\Scripts\activate  # Windows
 source .venv/bin/activate  # Linux/Mac
 
-# Install deps
+# Cài đặt dependencies
 pip install -r requirements.txt
 
-# Set environment (local testing)
+# Cấu hình cookie cho local test
 # 1. Copy tests/cookies.ps1.example -> .env.ps1
 # 2. Điền cookies vào .env.ps1
 # 3. Chạy file:
 .\.env.ps1
 
-# Run
+# Chạy tool
 python -m src.main
 
-# Test (Mock data - không cần cookie)
+# Chạy test (Mock data - không cần cookie)
 pip install pytest pytest-asyncio
 pytest tests -v
 ```
 
-## 📊 Output Example
+## 📊 Ví dụ output
 
 ```
 20/01/2026 07:38:22 [INFO] ==================================================
@@ -143,13 +166,87 @@ pytest tests -v
 20/01/2026 07:38:24 [INFO] ==================================================
 ```
 
-## ⚠️ Lưu ý
+## ⚙️ Cấu hình nâng cao
 
-> **KHÔNG** commit cookies vào repository!
+### Environment Variables
 
-- Cookies có giá trị **~1 năm**, sau đó cần lấy lại và update trong Secrets
-- Delay 5s giữa mỗi lần nhập code để tránh rate limit
-- API có thể thay đổi từ phía Hoyoverse
+| Variable | Mô tả | Mặc định |
+|----------|-------|----------|
+| `ACC_*` | Cookie strings (ACC_1, ACC_2,...) | Bắt buộc |
+| `DEBUG` | Bật debug mode | `""` |
+| `LOG_LEVEL` | Output format: `human`, `json`, `both` | `human` |
+
+### Settings (trong [`src/config.py`](src/config.py))
+
+```python
+SEMAPHORE_LIMIT = 20      # Số request song song tối đa
+REDEEM_DELAY = 5         # Giây giữa mỗi lần nhập code
+REQUEST_TIMEOUT = 30      # Timeout request (giây)
+CONNECT_TIMEOUT = 10      # Timeout kết nối (giây)
+MAX_RETRIES = 3           # Số lần thử lại khi lỗi
+RATE_LIMIT_DELAY = 5       # Giây chờ khi bị rate limit (429)
+```
+
+## ❓ Troubleshooting
+
+### Cookie không hợp lệ
+
+```
+[✗] ACC_1: Missing required cookies: ['account_id_v2']
+```
+
+**Giải pháp:**
+1. Lấy lại cookie từ HoYoLab (xem hướng dẫn trên)
+2. Đảm bảo cookie có đầy đủ các trường: `_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`
+
+### Không tìm thấy account
+
+```
+ERROR: Không tìm thấy account nào trong environment variables!
+```
+
+**Giải pháp:**
+1. Kiểm tra GitHub Secrets đã thêm `ACC_1` chưa
+2. Verify tên secret khớp với env var (ACC_1, ACC_2,...)
+3. Chạy lại workflow thủ công
+
+### Lỗi rate limit
+
+```
+[ERROR] Request failed: Rate limited (429)
+```
+
+**Giải pháp:**
+1. Đợi một thời gian rồi chạy lại
+2. Giảm số lượng account
+3. Đợi 24h để reset limit
+
+### Code bị skip liên tục
+
+```
+ABC: ⏭ Skip (expired/invalid từ region trước)
+```
+
+**Giải pháp:**
+- Code đã hết hạn hoặc không hợp lệ
+- Chờ code mới từ livestream/event
+
+## 📝 Changelog
+
+Xem chi tiết tại [`CHANGELOG.md`](CHANGELOG.md)
+
+**Cập nhật gần đây:**
+- **ZZZ Stealth Mode**: Tối ưu headers để giống app thật
+- **Dynamic Page Info**: Hỗ trợ game-specific gameId và pageType
+- **Log Optimization**: Ẩn account không có character/UID
+
+## 🔐 Bảo mật
+
+> **QUAN TRỌNG:**
+> - **KHÔNG** bao giờ commit cookies vào repository!
+> - Cookies có giá trị ~1 năm, sau đó cần lấy lại
+> - Delay 5s giữa mỗi lần nhập code để tránh rate limit
+> - API có thể thay đổi từ phía HoYoverse bất cứ lúc nào
 
 ## 📝 License
 
