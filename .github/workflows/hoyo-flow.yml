@@ -6,17 +6,23 @@ on:
     - cron: '45 21 * * *'
   workflow_dispatch:  # Cho phép chạy manual
 
+# Chỉ chạy 1 instance tại 1 thời điểm
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   core_flow:
     runs-on: ubuntu-latest
     environment: live
+    timeout-minutes: 30  # Timeout sau 30 phút
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Set up Python with pip cache
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -30,6 +36,4 @@ jobs:
           ACC_2: ${{ secrets.ACC_2 }}
           ACC_3: ${{ secrets.ACC_3 }}
           ACC_4: ${{ secrets.ACC_4 }}
-          # Thêm LOG_LEVEL=json để machine-parseable logs
-          # LOG_LEVEL: json
         run: python -m src.main
