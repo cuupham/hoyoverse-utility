@@ -1,22 +1,23 @@
 """Game models - Game Enum và Region configurations"""
+import json
 from dataclasses import dataclass
 from enum import Enum
 
 
 @dataclass(frozen=True)
 class GameInfo:
-    """Thông tin của 1 game - immutable"""
-    code: str              # 'gs', 'sr', 'zzz'
-    name: str              # Tên hiển thị
-    game_id: str           # ID dùng trong API
-    act_id: str            # Act ID cho check-in
-    game_biz: str          # Game biz string
-    signgame: str | None   # Signgame header (None cho Genshin)
-    page_type: str = ""    # Type trang cụ thể (vd: ZZZ=46)
+    """Thông tin của 1 game - immutable."""
+
+    code: str  # 'gs', 'sr', 'zzz'
+    name: str  # Tên hiển thị
+    game_id: str  # ID dùng trong API
+    act_id: str  # Act ID cho check-in
+    game_biz: str  # Game biz string
+    signgame: str | None  # Signgame header (None cho Genshin)
+    page_type: str = ""  # Type trang cụ thể (vd: ZZZ=46)
 
     def get_page_info(self, page_name: str = "HomeGamePage") -> str:
-        """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động"""
-        import json
+        """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động."""
         return json.dumps({
             "pageName": page_name,
             "pageType": self.page_type,

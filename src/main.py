@@ -1,19 +1,26 @@
 """Main entry point - HoYoLab Auto Check-in & Redeem Code Tool"""
+from __future__ import annotations
+
 import asyncio
 import sys
+from datetime import datetime
+from typing import TYPE_CHECKING
 
-from src.models.account import Account
-from src.models.game import Game
 from src.api.client import create_session
 from src.api.checkin import check_cookie, run_checkin_for_account
 from src.api.redeem import fetch_all_cdkeys, fetch_all_uids, run_redeem_for_account
+from src.config import CHECKIN_ALREADY_SIGNED_KEYWORD
+from src.models.account import Account
+from src.models.game import Game
 from src.utils.helpers import get_accounts_from_env
-from src.utils.logger import ctx, log_info, log_error, log_print
+from src.utils.logger import ctx, log_error, log_info, log_print
+
+if TYPE_CHECKING:
+    import aiohttp
 
 
-def print_header():
-    """In header của tool"""
-    from datetime import datetime
+def print_header() -> None:
+    """In header của tool."""
     log_print("=" * 50)
     log_print("HOYOLAB AUTO TOOL")
     log_print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -21,13 +28,27 @@ def print_header():
     log_print("=" * 50)
 
 
-def print_section(title: str):
-    """In section header"""
+def print_section(title: str) -> None:
+    """In section header."""
     log_print(f"--- {title} ---")
     log_print()
 
 
-async def validate_accounts(session, accounts: list[Account]) -> list[Account]:
+def _format_checkin_line(game: Game, result: dict) -> str:
+    """Format một dòng kết quả check-in."""
+    status = "✓" if result["success"] else "✗"
+    game_name = game.value.name
+    if result["success"]:
+        if CHECKIN_ALREADY_SIGNED_KEYWORD in result["message"]:
+            return f"  {game_name}: {status} Đã điểm danh trước đó"
+        return f"  {game_name}: {status} {result['message']} (Ngày {result['day']})"
+    return f"  {game_name}: ✗ {result['message']}"
+
+
+async def validate_accounts(
+    session: aiohttp.ClientSession,
+    accounts: list[Account],
+) -> list[Account]:
     """Validate tất cả cookies song song
     
     Returns:
@@ -53,32 +74,30 @@ async def validate_accounts(session, accounts: list[Account]) -> list[Account]:
     return valid_accounts
 
 
-async def run_checkin(session, accounts: list[Account]) -> dict[str, dict]:
-    """Chạy check-in cho tất cả accounts song song"""
+async def run_checkin(
+    session: aiohttp.ClientSession,
+    accounts: list[Account],
+) -> dict[str, dict]:
+    """Chạy check-in cho tất cả accounts song song."""
     tasks = [run_checkin_for_account(session, acc) for acc in accounts]
     results = await asyncio.gather(*tasks)
     return {acc.name: res for acc, res in zip(accounts, results)}
 
 
-def display_checkin(all_results: dict[str, dict]):
-    """Hiển thị kết quả check-in"""
+def display_checkin(all_results: dict[str, dict]) -> None:
+    """Hiển thị kết quả check-in."""
     print_section("CHECK-IN")
     for acc_name, results in all_results.items():
         log_print(f"=== {acc_name} ===")
         for game, result in results.items():
-            status = "✓" if result["success"] else "✗"
-            if result["success"]:
-                if "trước đó" in result["message"]:
-                    msg = f"  {game.value.name}: {status} Đã điểm danh trước đó"
-                else:
-                    msg = f"  {game.value.name}: {status} {result['message']} (Ngày {result['day']})"
-            else:
-                msg = f"  {game.value.name}: ✗ {result['message']}"
-            log_print(msg)
+            log_print(_format_checkin_line(game, result))
         log_print()
 
 
-async def run_redeem_data(session, accounts: list[Account]):
+async def run_redeem_data(
+    session: aiohttp.ClientSession,
+    accounts: list[Account],
+):
     """Chạy redeem và trả về toàn bộ dữ liệu (CDKeys, UIDs, Results)"""
     # Fetch CDKeys
     cdkeys = await fetch_all_cdkeys(session, accounts[0])
@@ -103,8 +122,12 @@ async def run_redeem_data(session, accounts: list[Account]):
     return cdkeys, account_uids, results_map
 
 
-def display_redeem(cdkeys, account_uids, results_map):
-    """Hiển thị kết quả redeem"""
+def display_redeem(
+    cdkeys: dict,
+    account_uids: dict,
+    results_map: dict,
+) -> None:
+    """Hiển thị kết quả redeem."""
     print_section("REDEEM CODE")
     
     # 1. Hiển thị CDKeys fetched

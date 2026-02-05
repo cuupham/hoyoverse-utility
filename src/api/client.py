@@ -7,7 +7,15 @@ import asyncio
 import aiohttp
 from typing import Any
 
-from src.config import SEMAPHORE_LIMIT, MAX_RETRIES, REQUEST_TIMEOUT, CONNECT_TIMEOUT, RATE_LIMIT_DELAY
+from src.config import (
+    CONNECTOR_LIMIT,
+    CONNECTOR_LIMIT_PER_HOST,
+    CONNECT_TIMEOUT,
+    MAX_RETRIES,
+    RATE_LIMIT_DELAY,
+    REQUEST_TIMEOUT,
+    SEMAPHORE_LIMIT,
+)
 
 # Lazy semaphore - tạo khi cần, gắn đúng event loop
 _SEMAPHORE: asyncio.Semaphore | None = None
@@ -141,8 +149,8 @@ def create_session() -> aiohttp.ClientSession:
     """
     return aiohttp.ClientSession(
         connector=aiohttp.TCPConnector(
-            limit=30,
-            limit_per_host=10,
+            limit=CONNECTOR_LIMIT,
+            limit_per_host=CONNECTOR_LIMIT_PER_HOST,
         ),
         cookie_jar=aiohttp.DummyCookieJar(),
         timeout=aiohttp.ClientTimeout(

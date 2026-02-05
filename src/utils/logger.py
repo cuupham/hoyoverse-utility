@@ -15,8 +15,10 @@ class OutputMode(Enum):
 
 
 def get_output_mode() -> OutputMode:
-    """Get output mode với fallback an toàn"""
-    mode = os.environ.get("LOG_LEVEL", "human").lower()
+    """Lấy output mode từ LOG_LEVEL; fallback từ config nếu không set hoặc không hợp lệ."""
+    from src.config import DEFAULT_LOG_LEVEL
+
+    mode = (os.environ.get("LOG_LEVEL") or DEFAULT_LOG_LEVEL).lower()
     try:
         return OutputMode(mode)
     except ValueError:
