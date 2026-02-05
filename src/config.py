@@ -1,4 +1,6 @@
 """Centralized configuration - Tất cả constants và settings"""
+import os
+
 from src.utils.headers import DYNAMIC_HEADERS
 
 # ==================== COMMON HEADERS ====================
@@ -65,6 +67,26 @@ MAX_RETRIES = 3           # Retry attempts
 RATE_LIMIT_DELAY = 5      # Seconds to wait when rate limited (429)
 MIN_UID_LENGTH = 6        # UIDs shorter than this are masked entirely
 DEFAULT_TIMEZONE = "Asia/Saigon"  # Khớp với curl của bạn
+
+# Connection pool (client session)
+CONNECTOR_LIMIT = 30
+CONNECTOR_LIMIT_PER_HOST = 10
+
+# Logger: default output mode khi LOG_LEVEL không set hoặc không hợp lệ
+DEFAULT_LOG_LEVEL = "human"
+
+# Display: từ khóa nhận diện "đã điểm danh trước đó" trong message
+CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
+
+# Cookie check API (user_brief_info) - x-rpc-app_version
+# Lấy từ env COOKIE_CHECK_APP_VERSION; nếu không set thì gửi rỗng (API vẫn chấp nhận).
+# Khi có phương pháp lấy version (vd iTunes API, roadmap) có thể set env hoặc cập nhật logic ở đây.
+def _get_cookie_check_app_version() -> str:
+    v = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
+    return v if v else ""
+
+
+COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()
 
 # ==================== REDEEM MESSAGES (i18n ready) ====================
 REDEEM_MESSAGES = {

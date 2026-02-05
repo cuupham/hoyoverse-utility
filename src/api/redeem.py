@@ -3,48 +3,41 @@ import asyncio
 import aiohttp
 from typing import Any
 
-from src.config import COMMON_HEADERS, ORIGINS, URLS, REDEEM_DELAY, REDEEM_MESSAGES, SKIP_REMAINING_RETCODES, SKIP_GLOBALLY_RETCODES, DEFAULT_TIMEZONE
+from src.config import (
+    REDEEM_DELAY,
+    REDEEM_MESSAGES,
+    SKIP_GLOBALLY_RETCODES,
+    SKIP_REMAINING_RETCODES,
+    URLS,
+)
 from src.models.account import Account
 from src.models.game import Game, REGIONS
 from src.api.client import safe_api_call
-from src.utils.helpers import current_hour, rpc_weekday, unix_ms
+from src.utils.helpers import build_rpc_headers, unix_ms
 
 
 async def fetch_cdkeys(
-    session: aiohttp.ClientSession, 
-    account: Account, 
-    game: Game
+    session: aiohttp.ClientSession,
+    account: Account,
+    game: Game,
 ) -> list[str]:
-    """Fetch danh sách CDKeys cho 1 game
-    
+    """Fetch danh sách CDKeys cho 1 game.
+
     Args:
-        session: aiohttp ClientSession
-        account: Account để lấy cookies
-        game: Game enum
-        
+        session: aiohttp ClientSession.
+        account: Account để lấy cookies.
+        game: Game enum.
+
     Returns:
-        List các CDKey codes
+        List các CDKey codes.
     """
     game_info = game.value
-    
-    headers = {
-        **COMMON_HEADERS,
-        **ORIGINS["act_hoyolab"],
-        "Cookie": account.cookie_str,
-        "x-rpc-client_type": "4",
-        "x-rpc-device_id": account.mhy_uuid,
-        "x-rpc-hour": current_hour(),
-        "x-rpc-language": "en-us",
-        "x-rpc-lrsag": "",
-        "x-rpc-page_info": game_info.get_page_info(""),
-        "x-rpc-page_name": "",
-        "x-rpc-show-translated": "false",
-        "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-        "x-rpc-sys_version": "Windows NT 10.0",
-        "x-rpc-timezone": DEFAULT_TIMEZONE,
-        "x-rpc-weekday": rpc_weekday(),
-    }
-    
+    headers = build_rpc_headers(
+        account,
+        "act_hoyolab",
+        game_info.get_page_info(""),
+        page_name="",
+    )
     params = {"game_id": game_info.game_id}
     
     result = await safe_api_call(session, URLS['fetch_cdkeys'], headers, params=params)
@@ -104,30 +97,17 @@ async def fetch_uid(
     if not region_value:
         return None
     
-    headers = {
-        **COMMON_HEADERS,
-        **ORIGINS["hoyolab"],
-        "Cookie": account.cookie_str,
-        "x-rpc-client_type": "4",
-        "x-rpc-device_id": account.mhy_uuid,
-        "x-rpc-hour": current_hour(),
-        "x-rpc-language": "en-us",
-        "x-rpc-lrsag": "",
-        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
-        "x-rpc-page_name": "HomeGamePage",
-        "x-rpc-show-translated": "false",
-        "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-        "x-rpc-sys_version": "Windows NT 10.0",
-        "x-rpc-timezone": DEFAULT_TIMEZONE,
-        "x-rpc-weekday": rpc_weekday(),
-    }
-    
+    headers = build_rpc_headers(
+        account,
+        "hoyolab",
+        game_info.get_page_info("HomeGamePage"),
+        page_name="HomeGamePage",
+    )
     params = {
         "region": region_value,
-        "game_biz": game_info.game_biz
+        "game_biz": game_info.game_biz,
     }
-    
-    result = await safe_api_call(session, URLS['fetch_uid'], headers, params=params)
+    result = await safe_api_call(session, URLS["fetch_uid"], headers, params=params)
     
     if not result["success"]:
         return None
@@ -189,38 +169,25 @@ async def exchange_cdkey(
     game_info = game.value
     region_value = REGIONS[game].get(region_code)
     
-    headers = {
-        **COMMON_HEADERS,
-        **ORIGINS["hoyolab"],
-        "Cookie": account.cookie_str,
-        "x-rpc-client_type": "4",
-        "x-rpc-device_id": account.mhy_uuid,
-        "x-rpc-hour": current_hour(),
-        "x-rpc-language": "en-us",
-        "x-rpc-lrsag": "",
-        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
-        "x-rpc-page_name": "HomeGamePage",
-        "x-rpc-show-translated": "false",
-        "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-        "x-rpc-sys_version": "Windows NT 10.0",
-        "x-rpc-timezone": DEFAULT_TIMEZONE,
-        "x-rpc-weekday": rpc_weekday(),
-    }
-    
+    headers = build_rpc_headers(
+        account,
+        "hoyolab",
+        game_info.get_page_info("HomeGamePage"),
+        page_name="HomeGamePage",
+    )
     params = {
         "cdkey": cdkey,
         "game_biz": game_info.game_biz,
         "lang": "en",
         "region": region_value,
         "t": unix_ms(),
-        "uid": uid
+        "uid": uid,
     }
-    
     result = await safe_api_call(
-        session, 
-        URLS['redeem'][game_info.code], 
-        headers, 
-        params=params
+        session,
+        URLS["redeem"][game_info.code],
+        headers,
+        params=params,
     )
     
     if not result["success"]:
