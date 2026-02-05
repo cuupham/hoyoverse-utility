@@ -65,6 +65,9 @@ env:
   ACC_4: ${{ secrets.ACC_4 }}
 ```
 
+**Biến tùy chọn:**
+- `COOKIE_CHECK_APP_VERSION`: Giá trị header `x-rpc-app_version` cho API kiểm tra cookie (user_brief_info). Nếu không set thì gửi rỗng — API vẫn chấp nhận. Khi có phương pháp lấy version (vd iTunes API, xem Roadmap) có thể set biến này.
+
 ### 2.3. Cookie Format
 
 ```
@@ -298,19 +301,28 @@ def unix_ms() -> int:
 | Method   | `GET` |
 | Cookie   | Required |
 
-**Headers:**
+**Headers:** (theo curl thực tế từ www.hoyolab.com — origin/referer = www, device_id = _HYVUUID, source_info = HomeUserPage/Post)
 ```python
 headers = {
     **COMMON_HEADERS,
+    **ORIGINS["hoyolab"],  # origin: https://www.hoyolab.com, referer: https://www.hoyolab.com/
+    "Cookie": account.cookie_str,
+    "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,  # Từ env COOKIE_CHECK_APP_VERSION; không set thì rỗng
     "x-rpc-client_type": "4",
-    "x-rpc-device_id": cookies["_MHYUUID"],
+    "x-rpc-device_id": account.hyv_uuid,           # _HYVUUID (khác với các API khác dùng _MHYUUID)
     "x-rpc-hour": current_hour(),
     "x-rpc-language": "en-us",
     "x-rpc-lrsag": "",
-    "x-rpc-page_info": game_info.get_page_info("HomePage"), # Sinh động từ GameInfo
+    "x-rpc-page_info": '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}',  # account-wide, không gắn game
     "x-rpc-page_name": "HomePage",
     "x-rpc-show-translated": "false",
-    "x-rpc-source_info": '{"sourceName":"UserSettingPage","sourceType":"RewardsInfo","sourceId":"","sourceArrangement":"","sourceGameId":""}',
+    "x-rpc-source_info": json.dumps({
+        "sourceName": "HomeUserPage",
+        "sourceType": "Post",
+        "sourceId": account.cookies.get("account_id_v2", ""),
+        "sourceArrangement": "",
+        "sourceGameId": "",
+    }, separators=(",", ":")),
     "x-rpc-sys_version": "Windows NT 10.0",
     "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
@@ -1263,6 +1275,14 @@ CONNECT_TIMEOUT = 10      # Connection timeout
 MAX_RETRIES = 3           # Retry attempts
 RATE_LIMIT_DELAY = 5      # Seconds to wait when rate limited (429)
 MIN_UID_LENGTH = 6        # UIDs shorter than this are masked entirely
+
+# Cookie check (user_brief_info): x-rpc-app_version
+# Đọc từ env COOKIE_CHECK_APP_VERSION; không set thì gửi rỗng (API vẫn chấp nhận).
+# Khi có phương pháp lấy version (vd iTunes API) có thể set env hoặc cập nhật config.
+def _get_cookie_check_app_version() -> str:
+    v = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
+    return v if v else ""
+COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()
 ```
 
 **Cách sử dụng:**

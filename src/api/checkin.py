@@ -2,46 +2,76 @@
 from __future__ import annotations  # Enable forward references for type hints
 
 import asyncio
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import aiohttp  # Chỉ import khi type checker chạy, không import runtime
 
-from src.config import COMMON_HEADERS, ORIGINS, URLS, DEFAULT_TIMEZONE
+from src.config import (
+    COMMON_HEADERS,
+    COOKIE_CHECK_APP_VERSION,
+    DEFAULT_TIMEZONE,
+    ORIGINS,
+    URLS,
+)
 from src.models.account import Account
 from src.models.game import Game
 from src.api.client import safe_api_call
 from src.utils.helpers import current_hour, rpc_weekday
 
 
+# page_info cho user_brief_info: account-wide, không gắn game → gameId rỗng (theo curl)
+COOKIE_CHECK_PAGE_INFO = '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}'
+
+
+def _cookie_check_source_info(account: Account) -> str:
+    """Build x-rpc-source_info cho user_brief_info (theo curl: HomeUserPage, Post, sourceId)."""
+    source_id = account.cookies.get("account_id_v2", "")
+    return json.dumps(
+        {
+            "sourceName": "HomeUserPage",
+            "sourceType": "Post",
+            "sourceId": source_id,
+            "sourceArrangement": "",
+            "sourceGameId": "",
+        },
+        separators=(",", ":"),
+    )
+
+
 async def check_cookie(session: aiohttp.ClientSession, account: Account) -> dict[str, Any]:
-    """Kiểm tra cookie còn hợp lệ không
-    
+    """Kiểm tra cookie còn hợp lệ không.
+
+    Headers khớp curl thực tế: origin www.hoyolab.com, x-rpc-device_id = _HYVUUID,
+    x-rpc-app_version, source_info HomeUserPage/Post với sourceId = account_id_v2.
+
     Args:
-        session: aiohttp ClientSession
-        account: Account object
-        
+        session: aiohttp ClientSession.
+        account: Account object.
+
     Returns:
         {"valid": bool, "email_mask": str | None, "error": str | None}
     """
     headers = {
         **COMMON_HEADERS,
+        **ORIGINS["hoyolab"],
         "Cookie": account.cookie_str,
+        "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,
         "x-rpc-client_type": "4",
-        "x-rpc-device_id": account.mhy_uuid,
+        "x-rpc-device_id": account.hyv_uuid,
         "x-rpc-hour": current_hour(),
         "x-rpc-language": "en-us",
         "x-rpc-lrsag": "",
-        "x-rpc-page_info": '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}',
+        "x-rpc-page_info": COOKIE_CHECK_PAGE_INFO,
         "x-rpc-page_name": "HomePage",
         "x-rpc-show-translated": "false",
-        "x-rpc-source_info": '{"sourceName":"UserSettingPage","sourceType":"RewardsInfo","sourceId":"","sourceArrangement":"","sourceGameId":""}',
+        "x-rpc-source_info": _cookie_check_source_info(account),
         "x-rpc-sys_version": "Windows NT 10.0",
         "x-rpc-timezone": DEFAULT_TIMEZONE,
         "x-rpc-weekday": rpc_weekday(),
     }
-    
-    result = await safe_api_call(session, URLS['check_cookie'], headers)
+    result = await safe_api_call(session, URLS["check_cookie"], headers)
     
     if not result["success"]:
         return {"valid": False, "email_mask": None, "error": result["message"]}
