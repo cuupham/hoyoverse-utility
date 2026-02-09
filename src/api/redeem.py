@@ -4,8 +4,11 @@ import aiohttp
 from typing import Any
 
 from src.config import (
+    PAGE_NAME_HOME_GAME,
     REDEEM_DELAY,
+    REDEEM_LANG,
     REDEEM_MESSAGES,
+    REDEEM_SKIP_MESSAGE_EXPIRED,
     SKIP_GLOBALLY_RETCODES,
     SKIP_REMAINING_RETCODES,
     URLS,
@@ -100,8 +103,8 @@ async def fetch_uid(
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        game_info.get_page_info("HomeGamePage"),
-        page_name="HomeGamePage",
+        game_info.get_page_info(PAGE_NAME_HOME_GAME),
+        page_name=PAGE_NAME_HOME_GAME,
     )
     params = {
         "region": region_value,
@@ -172,13 +175,13 @@ async def exchange_cdkey(
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        game_info.get_page_info("HomeGamePage"),
-        page_name="HomeGamePage",
+        game_info.get_page_info(PAGE_NAME_HOME_GAME),
+        page_name=PAGE_NAME_HOME_GAME,
     )
     params = {
         "cdkey": cdkey,
         "game_biz": game_info.game_biz,
-        "lang": "en",
+        "lang": REDEEM_LANG,
         "region": region_value,
         "t": unix_ms(),
         "uid": uid,
@@ -242,7 +245,7 @@ async def redeem_codes_for_region(
         if code in globally_expired_codes:
             results[code] = {
                 "success": False,
-                "message": "⏭ Đã skip (expired/invalid từ region trước)",
+                "message": REDEEM_SKIP_MESSAGE_EXPIRED,
                 "skipped": True,
             }
             continue

@@ -1,0 +1,34 @@
+---
+description: Convention Python và cấu trúc src cho hoyoverse-utility
+globs: src/**/*.py
+alwaysApply: false
+---
+
+# Python & src conventions
+
+## Nơi đặt constants / config
+
+- **`src/config.py`**: URLs, ORIGINS, timeouts, retries, redeem delay, retcodes, REDEEM_MESSAGES, DEFAULT_TIMEZONE. Giá trị từ env (vd `COOKIE_CHECK_APP_VERSION`) đọc trong config, không đọc rải rác.
+- **`src/constants.py`**: Chỉ giá trị không phụ thuộc module khác (tránh circular import), vd `DEFAULT_CHROME_VERSION`.
+- **`src/models/game.py`**: `Game` enum, `GameInfo`, `REGIONS` — không duplicate game/region ở nơi khác.
+
+## Không hardcode
+
+- Không gán default cho biến/parameter khi giá trị đó đã có trong config. Lấy từ `config` hoặc `constants`.
+- Nếu cần giá trị mới: thêm vào config/constants, rồi import dùng. Thiếu thì raise/log rõ, không fallback im lặng.
+
+## Tham chiếu trước khi sửa
+
+- Đọc `docs/SPEC.md` trước khi tạo/sửa/mở rộng logic API, flow, hoặc format output.
+- Mọi thay đổi phải khớp cấu trúc và design trong SPEC (luồng, headers, retcode, display).
+
+## Cấu trúc và tách biệt
+
+- **API layer** (`src/api/`): Chỉ gọi API, trả về dict/list; không gọi logger in kết quả chi tiết.
+- **Display**: Hàm `display_*` trong `main.py` nhận data đã gom, dùng `log_print`/logger để in.
+- **Async**: Dùng `safe_api_call` và `create_session` từ `api/client.py`; không tạo session/request pattern mới tùy tiện.
+
+## Bảo mật
+
+- Không log cookie, token, hoặc header chứa sensitive data. Dùng `utils/security.mask_uid` khi cần log UID.
+- Sanitize error message (đã có trong `api/client._sanitize_error_message`).

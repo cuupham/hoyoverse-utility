@@ -11,18 +11,23 @@ if TYPE_CHECKING:
 from src.config import (
     COMMON_HEADERS,
     COOKIE_CHECK_APP_VERSION,
+    COOKIE_CHECK_PAGE_INFO,
     DEFAULT_TIMEZONE,
     ORIGINS,
+    PAGE_NAME_HOME,
+    PAGE_NAME_HOME_GAME,
+    RPC_CLIENT_TYPE,
+    RPC_LANGUAGE,
+    RPC_PLATFORM,
+    RPC_SHOW_TRANSLATED,
+    RPC_SYS_VERSION,
     URLS,
 )
+from src.constants import JSON_SEPARATORS
 from src.models.account import Account
 from src.models.game import Game
 from src.api.client import safe_api_call
 from src.utils.helpers import current_hour, rpc_weekday
-
-
-# page_info cho user_brief_info: account-wide, không gắn game → gameId rỗng (theo curl)
-COOKIE_CHECK_PAGE_INFO = '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}'
 
 
 def _cookie_check_source_info(account: Account) -> str:
@@ -36,7 +41,7 @@ def _cookie_check_source_info(account: Account) -> str:
             "sourceArrangement": "",
             "sourceGameId": "",
         },
-        separators=(",", ":"),
+        separators=JSON_SEPARATORS,
     )
 
 
@@ -58,16 +63,16 @@ async def check_cookie(session: aiohttp.ClientSession, account: Account) -> dict
         **ORIGINS["hoyolab"],
         "Cookie": account.cookie_str,
         "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,
-        "x-rpc-client_type": "4",
+        "x-rpc-client_type": RPC_CLIENT_TYPE,
         "x-rpc-device_id": account.hyv_uuid,
         "x-rpc-hour": current_hour(),
-        "x-rpc-language": "en-us",
+        "x-rpc-language": RPC_LANGUAGE,
         "x-rpc-lrsag": "",
         "x-rpc-page_info": COOKIE_CHECK_PAGE_INFO,
-        "x-rpc-page_name": "HomePage",
-        "x-rpc-show-translated": "false",
+        "x-rpc-page_name": PAGE_NAME_HOME,
+        "x-rpc-show-translated": RPC_SHOW_TRANSLATED,
         "x-rpc-source_info": _cookie_check_source_info(account),
-        "x-rpc-sys_version": "Windows NT 10.0",
+        "x-rpc-sys_version": RPC_SYS_VERSION,
         "x-rpc-timezone": DEFAULT_TIMEZONE,
         "x-rpc-weekday": rpc_weekday(),
     }
@@ -100,7 +105,7 @@ async def get_checkin_info(
         **COMMON_HEADERS,
         **ORIGINS["act_hoyolab"],
         "Cookie": account.cookie_str,
-        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
+        "x-rpc-page_info": game_info.get_page_info(PAGE_NAME_HOME_GAME),
     }
     
     if game_info.signgame:  # Star Rail / ZZZ
@@ -108,7 +113,7 @@ async def get_checkin_info(
     else:  # Genshin
         headers["x-rpc-lrsag"] = ""
     
-    params = {"lang": "en-us", "act_id": game_info.act_id}
+    params = {"lang": RPC_LANGUAGE, "act_id": game_info.act_id}
     
     result = await safe_api_call(
         session, 
@@ -158,22 +163,22 @@ async def do_checkin(
         **COMMON_HEADERS,
         **ORIGINS["act_hoyolab"],
         "Cookie": account.cookie_str,
-        "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
+        "x-rpc-page_info": game_info.get_page_info(PAGE_NAME_HOME_GAME),
     }
     
     if game_info.signgame:  # Star Rail / ZZZ
-        headers["x-rpc-client_type"] = "4"
-        headers["x-rpc-platform"] = "4"
+        headers["x-rpc-client_type"] = RPC_CLIENT_TYPE
+        headers["x-rpc-platform"] = RPC_PLATFORM
         headers["x-rpc-signgame"] = game_info.signgame
-        json_data = {"act_id": game_info.act_id, "lang": "en-us"}
+        json_data = {"act_id": game_info.act_id, "lang": RPC_LANGUAGE}
     else:  # Genshin
         headers["content-type"] = "application/json;charset=UTF-8"
         headers["x-rpc-app_version"] = ""
         headers["x-rpc-device_id"] = account.hyv_uuid
         headers["x-rpc-device_name"] = ""
         headers["x-rpc-lrsag"] = ""
-        headers["x-rpc-page_info"] = game_info.get_page_info("HomeGamePage")
-        headers["x-rpc-platform"] = "4"
+        headers["x-rpc-page_info"] = game_info.get_page_info(PAGE_NAME_HOME_GAME)
+        headers["x-rpc-platform"] = RPC_PLATFORM
         json_data = {"act_id": game_info.act_id}
     
     result = await safe_api_call(

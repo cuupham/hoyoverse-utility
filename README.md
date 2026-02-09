@@ -134,8 +134,8 @@ pip install -r requirements.txt
 python -m src.main
 
 # Chạy test (Mock data - không cần cookie)
-pip install pytest pytest-asyncio
-pytest tests -v
+pip install -r tests/requirements.txt
+python -m pytest tests -v
 ```
 
 ## 📊 Ví dụ output

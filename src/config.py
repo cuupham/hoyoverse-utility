@@ -1,6 +1,8 @@
 """Centralized configuration - Tất cả constants và settings"""
+import json
 import os
 
+from src.constants import JSON_SEPARATORS
 from src.utils.headers import DYNAMIC_HEADERS
 
 # ==================== COMMON HEADERS ====================
@@ -78,6 +80,24 @@ DEFAULT_LOG_LEVEL = "human"
 # Display: từ khóa nhận diện "đã điểm danh trước đó" trong message
 CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 
+# ==================== RPC HEADER VALUES (single source - dùng trong checkin, helpers, API) ====================
+RPC_LANGUAGE = "en-us"
+RPC_CLIENT_TYPE = "4"
+RPC_PLATFORM = "4"
+RPC_SYS_VERSION = "Windows NT 10.0"
+RPC_SHOW_TRANSLATED = "false"
+# Page names cho x-rpc-page_name / get_page_info
+PAGE_NAME_HOME_GAME = "HomeGamePage"
+PAGE_NAME_HOME = "HomePage"
+# Lang param cho redeem API (khác RPC_LANGUAGE)
+REDEEM_LANG = "en"
+
+# Cookie check: page_info static (account-wide, không gắn game)
+COOKIE_CHECK_PAGE_INFO = json.dumps(
+    {"pageName": PAGE_NAME_HOME, "pageType": "", "pageId": "", "pageArrangement": "", "gameId": ""},
+    separators=JSON_SEPARATORS,
+)
+
 # Cookie check API (user_brief_info) - x-rpc-app_version
 # Lấy từ env COOKIE_CHECK_APP_VERSION; nếu không set thì gửi rỗng (API vẫn chấp nhận).
 # Khi có phương pháp lấy version (vd iTunes API, roadmap) có thể set env hoặc cập nhật logic ở đây.
@@ -97,6 +117,9 @@ REDEEM_MESSAGES = {
     -2016: "Code đã hết hạn",
     -2017: "Đã sử dụng hoặc không đủ điều kiện (Level/Rank)",
 }
+
+# Message hiển thị khi skip code đã biết expired/invalid từ region trước (single source cho redeem + display)
+REDEEM_SKIP_MESSAGE_EXPIRED = "⏭ Đã skip (expired/invalid từ region trước)"
 
 # Retcodes để skip trong 1 region (không thử các codes còn lại trong region này)
 # -2011: Chưa đủ rank - rank được tính per-account, không cần thử code khác

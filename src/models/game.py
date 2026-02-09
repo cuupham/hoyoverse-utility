@@ -3,6 +3,9 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 
+from src.config import PAGE_NAME_HOME_GAME
+from src.constants import JSON_SEPARATORS
+
 
 @dataclass(frozen=True)
 class GameInfo:
@@ -16,15 +19,18 @@ class GameInfo:
     signgame: str | None  # Signgame header (None cho Genshin)
     page_type: str = ""  # Type trang cụ thể (vd: ZZZ=46)
 
-    def get_page_info(self, page_name: str = "HomeGamePage") -> str:
+    def get_page_info(self, page_name: str = PAGE_NAME_HOME_GAME) -> str:
         """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động."""
-        return json.dumps({
-            "pageName": page_name,
-            "pageType": self.page_type,
-            "pageId": "",
-            "pageArrangement": "Hot" if page_name == "HomeGamePage" else "",
-            "gameId": self.game_id
-        }, separators=(',', ':'))
+        return json.dumps(
+            {
+                "pageName": page_name,
+                "pageType": self.page_type,
+                "pageId": "",
+                "pageArrangement": "Hot" if page_name == PAGE_NAME_HOME_GAME else "",
+                "gameId": self.game_id,
+            },
+            separators=JSON_SEPARATORS,
+        )
 
 
 class Game(Enum):

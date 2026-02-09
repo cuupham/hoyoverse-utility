@@ -1,0 +1,29 @@
+---
+description: API layer và bảo mật khi sửa src/api
+globs: src/api/**/*.py
+alwaysApply: false
+---
+
+# API & Security (src/api)
+
+## Gọi API
+
+- Mọi request ra ngoài qua **`safe_api_call`** (từ `src.api.client`). Không gọi `session.get`/`session.post` trực tiếp.
+- Dùng **`create_session()`** khi cần session; không tạo `ClientSession` mới với config khác (đã có connection pool, DummyCookieJar).
+- URL, params, headers lấy từ **`config.URLS`**, **`config.ORIGINS`**, **`models/game.Game`** / **`REGIONS`**; không hardcode.
+
+## Headers và cookie
+
+- Cookie đưa vào request qua `account.cookie_str` hoặc header "Cookie"; không lưu cookie vào session (DummyCookieJar để tránh lẫn giữa accounts).
+- **Không log** `headers`, `params` có chứa Cookie/token. Không log full request/response có dữ liệu nhạy cảm.
+- Khi cần log UID: dùng **`utils.security.mask_uid(uid)`**.
+
+## Retcode và message
+
+- Mapping retcode → message dùng **`config.REDEEM_MESSAGES`**; skip logic dùng **`config.SKIP_REMAINING_RETCODES`** / **`SKIP_GLOBALLY_RETCODES`**.
+- Ưu tiên hiển thị **`data.message`** từ API; chỉ fallback sang REDEEM_MESSAGES khi server không trả message (theo SPEC 8.2).
+
+## Tham chiếu
+
+- Chi tiết endpoint, method, headers: `docs/SPEC.md` (Section 5).
+- Config: `src/config.py`, `src/models/game.py`.

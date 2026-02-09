@@ -5,3 +5,6 @@ nên đặt tại đây. Config tập trung các setting còn lại.
 """
 # Fallback khi không parse được version từ User-Agent (Chrome/xx)
 DEFAULT_CHROME_VERSION = "142"
+
+# JSON compact separators - dùng chung cho get_page_info, source_info (tránh import config từ game)
+JSON_SEPARATORS = (",", ":")
