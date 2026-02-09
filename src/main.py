@@ -178,7 +178,7 @@ def display_redeem(
                 for code, res in codes_res.items():
                     status = "✓" if res["success"] else "✗"
                     if res.get("skipped"):
-                        log_print(f"      {code}: ⏭ Skip (đã biết expired/invalid)")
+                        log_print(f"      {code}: {res['message']}")
                     else:
                         log_print(f"      {code}: {status} {res['message']}")
         log_print()
