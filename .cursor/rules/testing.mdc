@@ -1,0 +1,32 @@
+---
+description: Convention viết test pytest cho hoyoverse-utility
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Testing conventions
+
+## Fixtures và mock
+
+- Dùng fixture có sẵn trong `tests/conftest.py`: `mock_account`, `mock_accounts`, `mock_cdkeys_*`, `mock_uids_*`, `mock_*_success` / `mock_*_invalid`, `mock_session`.
+- Không tạo mock trùng chức năng; thiếu thì bổ sung fixture trong conftest rồi dùng chung.
+- Mock tại **`safe_api_call`** (patch `src.api.checkin.safe_api_call`, `src.api.redeem.safe_api_call`, …) để không gọi API thật. Format trả về: `{"success": True, "data": {...}}` hoặc `{"success": False, "error": "...", "message": "..."}`.
+
+## Cấu trúc test
+
+- Dùng `@pytest.mark.asyncio` cho test async. Class theo module/chức năng (vd `TestCheckCookie`, `TestGetCheckinInfo`).
+- Một test một hành vi; tên test mô tả rõ (vd `test_check_cookie_success`, `test_redeem_skip_globally_expired`).
+- Assert theo **return shape** đã định trong SPEC/code (vd `result["valid"]`, `result["email_mask"]`).
+
+## Khi sửa logic trong src
+
+- Nếu thay đổi behavior hoặc return shape của hàm được test: cập nhật test tương ứng và fixture (nếu cần).
+- Thêm logic mới (API, helper) → thêm test tương ứng; ưu tiên dùng fixture có sẵn.
+
+## Chạy test
+
+```bash
+pytest tests -v
+```
+
+Cần pytest-asyncio (trong `tests/requirements.txt`).

@@ -1,0 +1,48 @@
+---
+description: DRY, single source of truth, clean code, refactor và bước tự kiểm tra
+alwaysApply: true
+---
+
+# Nguyên tắc viết code (project)
+
+## 1. DRY (Don't Repeat Yourself)
+
+- Không copy-paste logic hoặc chuỗi/constant giống nhau nhiều nơi.
+- Trích xuất thành **hàm / constant** dùng chung; gọi từ một chỗ.
+- **Quy tắc:** Cùng giá trị hoặc pattern xuất hiện **≥ 2 lần** → refactor sang single source ngay.
+
+## 2. Single source of truth
+
+- Mỗi loại dữ liệu/cấu hình có **một nơi** định nghĩa: `src/config.py`, `src/constants.py`, `src/models/game.py`.
+- Không hardcode giá trị mặc định trong UI hoặc business logic; lấy từ config/constants.
+- Thiếu config → xử lý lỗi rõ ràng, báo developer; không fallback thầm bằng giá trị hardcode.
+
+## 3. Clean code
+
+- Đặt tên rõ ràng (biến, hàm, file). Hàm ngắn, một nhiệm vụ.
+- Ưu tiên API/thư viện có sẵn thay vì tự viết lại.
+- **Trước khi thêm** hàm/class mới: kiểm tra đã có implementation tương tự chưa; tái sử dụng hoặc mở rộng.
+
+## 4. Refactor khi sửa
+
+- Mỗi lần sửa/bổ sung: tận dụng refactor trong **phạm vi ảnh hưởng** (file đang sửa + file gọi/bị gọi).
+- Tách logic lặp thành helper/util; gom constant mới vào `config.py` hoặc `constants.py`.
+- Đảm bảo thay đổi phù hợp với `docs/SPEC.md` và cấu trúc trong SPEC.
+
+## 5. Bước tự kiểm tra (trước khi coi task xong)
+
+1. **Chuỗi/số literal:** Có xuất hiện ≥ 2 nơi không? → Đưa vào config/constants và thay thế.
+2. **Logic giống nhau:** Có đoạn trùng với chỗ khác không? → Trích thành hàm dùng chung.
+3. **State/API:** Có truy cập state nội bộ từ bên ngoài không? → Expose qua getter/props/API công khai.
+4. **Phạm vi:** Kiểm tra cả file gọi file vừa sửa và cùng tính năng.
+
+---
+
+### Ví dụ nhanh
+
+| ❌ Tránh | ✅ Làm |
+|----------|--------|
+| Nhiều chỗ ghi cùng số/timeout | Một constant trong `config.py` |
+| Copy logic parse/format nhiều file | Một hàm trong `utils/helpers.py` |
+| Thêm hàm mới giống hàm có sẵn | Dùng hoặc mở rộng hàm có sẵn |
+| Fallback hardcode khi thiếu env | Báo lỗi rõ ràng, không fallback thầm |
