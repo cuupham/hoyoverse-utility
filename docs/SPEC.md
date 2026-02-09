@@ -191,7 +191,7 @@ DYNAMIC_HEADERS = get_dynamic_headers()
 
 ```python
 # src/config.py
-from utils.headers import DYNAMIC_HEADERS
+from src.utils.headers import DYNAMIC_HEADERS
 
 COMMON_HEADERS = {
     "accept": "application/json, text/plain, */*",
@@ -301,29 +301,23 @@ def unix_ms() -> int:
 | Method   | `GET` |
 | Cookie   | Required |
 
-**Headers:** (theo curl thực tế từ www.hoyolab.com — origin/referer = www, device_id = _HYVUUID, source_info = HomeUserPage/Post)
+**Headers:** (theo curl thực tế từ www.hoyolab.com — origin/referer = www, device_id = _HYVUUID, source_info = HomeUserPage/Post). Giá trị RPC lấy từ `config`: `RPC_CLIENT_TYPE`, `RPC_LANGUAGE`, `RPC_SHOW_TRANSLATED`, `RPC_SYS_VERSION`, `PAGE_NAME_HOME`, `COOKIE_CHECK_PAGE_INFO`; source_info dùng `constants.JSON_SEPARATORS`.
 ```python
 headers = {
     **COMMON_HEADERS,
-    **ORIGINS["hoyolab"],  # origin: https://www.hoyolab.com, referer: https://www.hoyolab.com/
+    **ORIGINS["hoyolab"],
     "Cookie": account.cookie_str,
-    "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,  # Từ env COOKIE_CHECK_APP_VERSION; không set thì rỗng
-    "x-rpc-client_type": "4",
-    "x-rpc-device_id": account.hyv_uuid,           # _HYVUUID (khác với các API khác dùng _MHYUUID)
+    "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,
+    "x-rpc-client_type": RPC_CLIENT_TYPE,
+    "x-rpc-device_id": account.hyv_uuid,  # _HYVUUID (khác các API khác dùng _MHYUUID)
     "x-rpc-hour": current_hour(),
-    "x-rpc-language": "en-us",
+    "x-rpc-language": RPC_LANGUAGE,
     "x-rpc-lrsag": "",
-    "x-rpc-page_info": '{"pageName":"HomePage","pageType":"","pageId":"","pageArrangement":"","gameId":""}',  # account-wide, không gắn game
-    "x-rpc-page_name": "HomePage",
-    "x-rpc-show-translated": "false",
-    "x-rpc-source_info": json.dumps({
-        "sourceName": "HomeUserPage",
-        "sourceType": "Post",
-        "sourceId": account.cookies.get("account_id_v2", ""),
-        "sourceArrangement": "",
-        "sourceGameId": "",
-    }, separators=(",", ":")),
-    "x-rpc-sys_version": "Windows NT 10.0",
+    "x-rpc-page_info": COOKIE_CHECK_PAGE_INFO,  # account-wide, không gắn game
+    "x-rpc-page_name": PAGE_NAME_HOME,
+    "x-rpc-show-translated": RPC_SHOW_TRANSLATED,
+    "x-rpc-source_info": json.dumps({...}, separators=JSON_SEPARATORS),  # sourceName: HomeUserPage, sourceType: Post
+    "x-rpc-sys_version": RPC_SYS_VERSION,
     "x-rpc-timezone": DEFAULT_TIMEZONE,
     "x-rpc-weekday": rpc_weekday(),
 }
@@ -372,10 +366,7 @@ headers = {
 
 **Params:**
 ```python
-params = {
-    "lang": "en-us",
-    "act_id": ACT_ID  # theo game
-}
+params = {"lang": RPC_LANGUAGE, "act_id": game_info.act_id}  # RPC_LANGUAGE từ config
 ```
 
 **Response:**
@@ -408,38 +399,17 @@ params = {
 
 **Method:** `POST`
 
-**Headers (Genshin):**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["act_hoyolab"],
-    "content-type": "application/json;charset=UTF-8",
-    "x-rpc-app_version": "",
-    "x-rpc-device_id": cookies["_HYVUUID"],
-    "x-rpc-device_name": "",
-    "x-rpc-lrsag": "",
-    "x-rpc-platform": "4",
-}
-```
+**Headers (Genshin):** `content-type`, `x-rpc-app_version`, `x-rpc-device_id` (account.hyv_uuid), `x-rpc-platform` (từ `config.RPC_PLATFORM`).
 
-**Headers (Star Rail / ZZZ):**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["act_hoyolab"],
-    "x-rpc-client_type": "4",   # Web (đồng bộ với cookie)
-    "x-rpc-platform": "4",      # Web/PC
-    "x-rpc-signgame": "hkrpg",  # hoặc "zzz"
-}
-```
+**Headers (Star Rail / ZZZ):** `x-rpc-client_type`, `x-rpc-platform` lấy từ `config.RPC_CLIENT_TYPE`, `config.RPC_PLATFORM`; `x-rpc-signgame` = game_info.signgame.
 
 **Body:**
 ```python
 # Genshin
-json_data = {"act_id": ACT_ID}
+json_data = {"act_id": game_info.act_id}
 
 # Star Rail / ZZZ
-json_data = {"act_id": ACT_ID, "lang": "en-us"}
+json_data = {"act_id": game_info.act_id, "lang": RPC_LANGUAGE}
 ```
 
 ---
@@ -488,25 +458,7 @@ Flow Fetch CDKeys:
 | URL      | `https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material` |
 | Method   | `GET` |
 
-**Headers:**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["act_hoyolab"],
-    "x-rpc-client_type": "4",
-    "x-rpc-device_id": cookies["_MHYUUID"],
-    "x-rpc-hour": current_hour(),
-    "x-rpc-language": "en-us",
-    "x-rpc-lrsag": "",
-    "x-rpc-page_info": game_info.get_page_info(""),
-    "x-rpc-page_name": "",
-    "x-rpc-show-translated": "false",
-    "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-    "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": DEFAULT_TIMEZONE,
-    "x-rpc-weekday": rpc_weekday(),
-}
-```
+**Headers:** Dùng `build_rpc_headers(account, "act_hoyolab", game_info.get_page_info(""), page_name="")` từ `utils/helpers.py`; các giá trị RPC lấy từ config (RPC_CLIENT_TYPE, RPC_LANGUAGE, RPC_SHOW_TRANSLATED, RPC_SYS_VERSION).
 
 **Params:**
 ```python
@@ -535,32 +487,11 @@ codes = [
 | URL      | `https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken` |
 | Method   | `GET` |
 
-**Headers:**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["hoyolab"],
-    "x-rpc-client_type": "4",
-    "x-rpc-device_id": cookies["_MHYUUID"],
-    "x-rpc-hour": current_hour(),
-    "x-rpc-language": "en-us",
-    "x-rpc-lrsag": "",
-    "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
-    "x-rpc-page_name": "HomeGamePage",
-    "x-rpc-show-translated": "false",
-    "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-    "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": DEFAULT_TIMEZONE,
-    "x-rpc-weekday": rpc_weekday(),
-}
-```
+**Headers:** Dùng `build_rpc_headers(account, "hoyolab", game_info.get_page_info(PAGE_NAME_HOME_GAME), page_name=PAGE_NAME_HOME_GAME)`; `PAGE_NAME_HOME_GAME` từ config.
 
 **Params:**
 ```python
-params = {
-    "region": REGION,     # vd: "os_asia"
-    "game_biz": GAME_BIZ  # vd: "hk4e_global"
-}
+params = {"region": region_value, "game_biz": game_info.game_biz}
 ```
 
 **Trích xuất UID:**
@@ -589,35 +520,17 @@ if response["retcode"] == 0:
 
 **Method:** `GET`
 
-**Headers:**
-```python
-headers = {
-    **COMMON_HEADERS,
-    **ORIGINS["hoyolab"],
-    "x-rpc-client_type": "4",
-    "x-rpc-device_id": cookies["_MHYUUID"],
-    "x-rpc-hour": current_hour(),
-    "x-rpc-language": "en-us",
-    "x-rpc-lrsag": "",
-    "x-rpc-page_info": game_info.get_page_info("HomeGamePage"),
-    "x-rpc-page_name": "HomeGamePage",
-    "x-rpc-show-translated": "false",
-    "x-rpc-source_info": '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
-    "x-rpc-sys_version": "Windows NT 10.0",
-    "x-rpc-timezone": DEFAULT_TIMEZONE,
-    "x-rpc-weekday": rpc_weekday(),
-}
-```
+**Headers:** Dùng `build_rpc_headers(account, "hoyolab", game_info.get_page_info(PAGE_NAME_HOME_GAME), page_name=PAGE_NAME_HOME_GAME)`.
 
 **Params:**
 ```python
 params = {
     "cdkey": cdkey,
-    "game_biz": GAME_BIZ,
-    "lang": "en",
-    "region": REGION,
+    "game_biz": game_info.game_biz,
+    "lang": REDEEM_LANG,  # từ config (khác RPC_LANGUAGE)
+    "region": region_value,
     "t": unix_ms(),
-    "uid": uid
+    "uid": uid,
 }
 ```
 
@@ -696,23 +609,25 @@ Game Genshin:
   
   Region America:
     CODE1: ✓ Thành công
-    CODE2: ⏭ Skip (đã biết expired từ Asia) → TIẾT KIỆM API call!
+    CODE2: ⏭ Đã skip (expired/invalid từ region trước) → TIẾT KIỆM API call! (message từ config.REDEEM_SKIP_MESSAGE_EXPIRED)
   
   Region Europe:
     CODE1: ✓ Thành công
-    CODE2: ⏭ Skip (đã biết expired từ Asia)
+    CODE2: ⏭ Đã skip (expired/invalid từ region trước)
 ```
 
 ---
 
 ## 7. Output Format (Console)
 
+Header và footer dùng 50 dấu `=`; thời gian format `Time: %Y-%m-%d %H:%M:%S` (từ `main.print_header()`).
+
 ```
-============================================================
-                    HOYOLAB AUTO TOOL
-                    20/01/2026 07:50:58
-                    Trace: a83cd482
-============================================================
+==================================================
+HOYOLAB AUTO TOOL
+Time: 2026-01-20 07:50:58
+Trace: a83cd482
+==================================================
 
 --- KIỂM TRA ACCOUNTS ---
 [✓] ACC_1: Hợp lệ (c****u9991@gmail.com)
@@ -742,9 +657,9 @@ Tổng: 4/4 accounts hợp lệ
 [SYSTEM] Zenless Zone Zero: Không có codes
 
 [SYSTEM] Không có codes nào để redeem
-============================================================
+==================================================
 DONE - 1.0s
-============================================================
+==================================================
 ```
 
 ### 7.1. Chiến lược Centrailized Logging (Gom log)
@@ -1063,17 +978,18 @@ display_something(results)  # In ra tuần tự
 
 ---
 
-## 9. Project Structure (Đề xuất)
+## 9. Project Structure
 
 ```
-hoyolab-auto/
+hoyoverse-utility/
 ├── .github/
 │   └── workflows/
 │       └── hoyo-flow.yml       # GitHub Actions workflow
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                 # Entry point
-│   ├── config.py               # Constants & configurations
+│   ├── config.py               # Cấu hình tập trung (URLs, ORIGINS, RPC_*, REDEEM_*, settings)
+│   ├── constants.py            # Giá trị không phụ thuộc module khác (JSON_SEPARATORS, DEFAULT_CHROME_VERSION)
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── client.py           # HTTP client wrapper (retry, semaphore)
@@ -1082,19 +998,22 @@ hoyolab-auto/
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── account.py          # Account model
-│   │   └── game.py             # Game & Region models
+│   │   └── game.py             # Game enum, GameInfo, REGIONS
 │   └── utils/
 │       ├── __init__.py
 │       ├── headers.py          # Dynamic User-Agent headers
-│       ├── helpers.py          # Helper functions
-│       ├── logger.py           # Logging utilities
-│       └── security.py         # Mask sensitive data
+│       ├── helpers.py          # Helper functions (build_rpc_headers, current_hour, ...)
+│       ├── logger.py           # Logging utilities (trace_id, log_print)
+│       └── security.py         # Mask sensitive data (mask_uid)
 ├── tests/                      # Unit tests & Mocks
 │   ├── conftest.py
 │   ├── test_checkin.py
 │   ├── test_redeem.py
 │   ├── test_core.py
+│   ├── test_fetch_cdkeys.py
 │   └── cookies.ps1.example
+├── docs/
+│   └── SPEC.md                 # Tài liệu kỹ thuật (file này)
 ├── requirements.txt
 └── README.md
 ```
@@ -1143,36 +1062,30 @@ log_info(acc.name, f"Genshin: UID {mask_uid(uid)}")
 
 ### 9.2. Centralized Config - Gom tất cả Constants
 
-Tất cả constants được gom vào 1 file `config.py` để dễ quản lý và sửa đổi khi API thay đổi.
+- **`src/config.py`:** URLs, ORIGINS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
+- **`src/constants.py`:** Giá trị không phụ thuộc module khác: `JSON_SEPARATORS`, `DEFAULT_CHROME_VERSION`.
+- **`src/models/game.py`:** Game enum, GameInfo, REGIONS (xem snippet dưới).
 
 ```python
-# src/config.py
+# src/models/game.py - Game, GameInfo, REGIONS
 
-# ==================== GAMES (Enum) ====================
-from enum import Enum
-from dataclasses import dataclass
+from src.config import PAGE_NAME_HOME_GAME
+from src.constants import JSON_SEPARATORS
 
 @dataclass(frozen=True)
 class GameInfo:
     """Thông tin của 1 game"""
-    code: str              # 'gs', 'sr', 'zzz'
-    name: str              # Tên hiển thị
-    game_id: str           # ID dùng trong API
-    act_id: str            # Act ID cho check-in
-    game_biz: str           # Game biz string
-    signgame: str | None   # Signgame header (None cho Genshin)
-    page_type: str = ""    # Type trang cụ thể (vd: ZZZ=46)
+    code: str
+    name: str
+    game_id: str
+    act_id: str
+    game_biz: str
+    signgame: str | None
+    page_type: str = ""
 
-    def get_page_info(self, page_name: str = "HomeGamePage") -> str:
+    def get_page_info(self, page_name: str = PAGE_NAME_HOME_GAME) -> str:
         """Sinh chuỗi JSON cho x-rpc-page_info với game_id và page_type động"""
-        import json
-        return json.dumps({
-            "pageName": page_name,
-            "pageType": self.page_type,
-            "pageId": "",
-            "pageArrangement": "Hot" if page_name == "HomeGamePage" else "",
-            "gameId": self.game_id
-        }, separators=(',', ':'))
+        return json.dumps({...}, separators=JSON_SEPARATORS)
 
 class Game(Enum):
     """Enum các game được hỗ trợ - Type-safe, IDE autocomplete"""
@@ -1224,7 +1137,7 @@ REGIONS: dict[Game, dict[str, str]] = {
     },
 }
 
-# ==================== API URLs ====================
+# ==================== (src/config.py) API URLs, ORIGINS, SETTINGS ====================
 URLS = {
     # Cookie validation
     'check_cookie': 'https://bbs-api-os.hoyolab.com/community/misc/wapi/account/user_brief_info',
@@ -1268,21 +1181,32 @@ ORIGINS = {
 }
 
 # ==================== SETTINGS ====================
-SEMAPHORE_LIMIT = 20      # Max concurrent requests
-REDEEM_DELAY = 5          # Seconds between redeem codes
-REQUEST_TIMEOUT = 30      # Total request timeout
-CONNECT_TIMEOUT = 10      # Connection timeout
-MAX_RETRIES = 3           # Retry attempts
-RATE_LIMIT_DELAY = 5      # Seconds to wait when rate limited (429)
-MIN_UID_LENGTH = 6        # UIDs shorter than this are masked entirely
+SEMAPHORE_LIMIT = 20
+REDEEM_DELAY = 5
+REQUEST_TIMEOUT = 30
+CONNECT_TIMEOUT = 10
+MAX_RETRIES = 3
+RATE_LIMIT_DELAY = 5
+MIN_UID_LENGTH = 6
+DEFAULT_TIMEZONE = "Asia/Saigon"
+CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 
-# Cookie check (user_brief_info): x-rpc-app_version
-# Đọc từ env COOKIE_CHECK_APP_VERSION; không set thì gửi rỗng (API vẫn chấp nhận).
-# Khi có phương pháp lấy version (vd iTunes API) có thể set env hoặc cập nhật config.
-def _get_cookie_check_app_version() -> str:
-    v = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
-    return v if v else ""
-COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()
+# RPC header values (single source cho checkin, redeem, helpers)
+RPC_LANGUAGE = "en-us"
+RPC_CLIENT_TYPE = "4"
+RPC_PLATFORM = "4"
+RPC_SYS_VERSION = "Windows NT 10.0"
+RPC_SHOW_TRANSLATED = "false"
+PAGE_NAME_HOME_GAME = "HomeGamePage"
+PAGE_NAME_HOME = "HomePage"
+REDEEM_LANG = "en"
+REDEEM_SKIP_MESSAGE_EXPIRED = "⏭ Đã skip (expired/invalid từ region trước)"
+COOKIE_CHECK_PAGE_INFO = json.dumps({...}, separators=JSON_SEPARATORS)  # pageName: PAGE_NAME_HOME
+COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()  # từ env
+REDEEM_MESSAGES = {...}
+SKIP_REMAINING_IN_REGION = {-2011}
+SKIP_GLOBALLY_RETCODES = {-2016, -2001}
+SKIP_REMAINING_RETCODES = ...
 ```
 
 **Cách sử dụng:**
