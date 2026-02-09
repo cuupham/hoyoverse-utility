@@ -90,21 +90,22 @@ hoyoverse-utility/
 │   └── hoyo-flow.yml          # GitHub Actions workflow
 ├── src/
 │   ├── main.py                # Entry point chính
-│   ├── config.py              # Cấu hình tập trung
+│   ├── config.py              # Cấu hình tập trung (URLs, RPC, redeem, settings)
+│   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION)
 │   ├── api/
-│   │   ├── client.py         # HTTP client với retry & semaphore
-│   │   ├── checkin.py        # API điểm danh
-│   │   └── redeem.py         # API nhập code
+│   │   ├── client.py          # HTTP client với retry & semaphore
+│   │   ├── checkin.py         # API điểm danh
+│   │   └── redeem.py          # API nhập code
 │   ├── models/
-│   │   ├── account.py        # Model tài khoản
-│   │   └── game.py           # Model game & region
+│   │   ├── account.py         # Model tài khoản
+│   │   └── game.py            # Model game & region
 │   └── utils/
 │       ├── headers.py         # Dynamic User-Agent
-│       ├── helpers.py         # Hàm tiện ích
-│       ├── logger.py         # Logging với trace_id
+│       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, ...)
+│       ├── logger.py          # Logging với trace_id
 │       └── security.py        # Mask dữ liệu nhạy cảm
-├── tests/                      # Test suite
-├── docs/                       # Tài liệu kỹ thuật
+├── tests/                     # Test suite
+├── docs/                      # Tài liệu kỹ thuật (SPEC.md)
 ├── requirements.txt           # Dependencies
 └── README.md                  # File này
 ```
@@ -224,11 +225,11 @@ ERROR: Không tìm thấy account nào trong environment variables!
 ### Code bị skip liên tục
 
 ```
-ABC: ⏭ Skip (expired/invalid từ region trước)
+ABC: ⏭ Đã skip (expired/invalid từ region trước)
 ```
 
 **Giải pháp:**
-- Code đã hết hạn hoặc không hợp lệ
+- Code đã hết hạn hoặc không hợp lệ (tool tự skip ở các region sau để tiết kiệm request)
 - Chờ code mới từ livestream/event
 
 ## 📝 Changelog
@@ -236,9 +237,10 @@ ABC: ⏭ Skip (expired/invalid từ region trước)
 Xem chi tiết tại [`CHANGELOG.md`](CHANGELOG.md)
 
 **Cập nhật gần đây:**
-- **ZZZ Stealth Mode**: Tối ưu headers để giống app thật
-- **Dynamic Page Info**: Hỗ trợ game-specific gameId và pageType
-- **Log Optimization**: Ẩn account không có character/UID
+- **DRY & Single source:** RPC headers, page names, message skip gom vào `config.py` / `constants.py`
+- **ZZZ Stealth Mode:** Tối ưu headers để giống app thật
+- **Dynamic Page Info:** Hỗ trợ game-specific gameId và pageType
+- **Log Optimization:** Ẩn account không có character/UID
 
 ## 🔐 Bảo mật
 
