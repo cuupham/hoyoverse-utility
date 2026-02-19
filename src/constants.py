@@ -8,3 +8,6 @@ DEFAULT_CHROME_VERSION = "142"
 
 # JSON compact separators - dùng chung cho get_page_info, source_info (tránh import config từ game)
 JSON_SEPARATORS = (",", ":")
+
+# Default x-rpc-source_info khi không cần source (fetch CDKeys, v.v.) - single source cho build_rpc_headers
+DEFAULT_SOURCE_INFO = '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}'

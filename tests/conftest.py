@@ -75,36 +75,36 @@ def mock_cdkeys_invalid() -> dict[Game, list[str]]:
 # ==================== MOCK UIDS ====================
 @pytest.fixture
 def mock_uids_all_regions() -> dict[Game, dict[str, str]]:
-    """Mock UIDs cho tất cả regions"""
+    """Mock UIDs cho tất cả regions. Key = region code (asia, usa, euro, tw) như production."""
     return {
         Game.GENSHIN: {
-            "os_asia": "800000001",
-            "os_usa": "600000001",
-            "os_euro": "700000001",
-            "os_cht": "900000001",
+            "asia": "800000001",
+            "usa": "600000001",
+            "euro": "700000001",
+            "tw": "900000001",
         },
         Game.STAR_RAIL: {
-            "prod_official_asia": "1300000001",
-            "prod_official_usa": "1500000001",
-            "prod_official_euro": "1700000001",
-            "prod_official_cht": "1900000001",
+            "asia": "1300000001",
+            "usa": "1500000001",
+            "euro": "1700000001",
+            "tw": "1900000001",
         },
         Game.ZZZ: {
-            "prod_gf_jp": "1000000001",
-            "prod_gf_us": "1100000001",
-            "prod_gf_eu": "1200000001",
-            "prod_gf_sg": "1300000001",
+            "asia": "1000000001",
+            "usa": "1100000001",
+            "euro": "1200000001",
+            "tw": "1300000001",
         },
     }
 
 
 @pytest.fixture
 def mock_uids_partial() -> dict[Game, dict[str, str]]:
-    """Mock UIDs - chỉ có 1 số games/regions"""
+    """Mock UIDs - chỉ có 1 số games/regions. Key = region code như production."""
     return {
-        Game.GENSHIN: {"os_asia": "800000001"},
+        Game.GENSHIN: {"asia": "800000001"},
         Game.STAR_RAIL: {},
-        Game.ZZZ: {"prod_gf_jp": "1000000001", "prod_gf_us": "1100000001"},
+        Game.ZZZ: {"asia": "1000000001", "usa": "1100000001"},
     }
 
 

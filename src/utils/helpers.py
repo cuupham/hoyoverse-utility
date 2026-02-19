@@ -16,6 +16,7 @@ from src.config import (
     RPC_SHOW_TRANSLATED,
     RPC_SYS_VERSION,
 )
+from src.constants import DEFAULT_SOURCE_INFO
 
 
 def current_hour() -> str:
@@ -47,7 +48,7 @@ def build_rpc_headers(
     origin_key: str,
     page_info: str,
     page_name: str,
-    source_info: str = '{"sourceName":"","sourceType":"","sourceId":"","sourceArrangement":"","sourceGameId":""}',
+    source_info: str = DEFAULT_SOURCE_INFO,
 ) -> dict[str, str]:
     """Tạo headers chung cho các API RPC (fetch CDKeys, UID, redeem).
 

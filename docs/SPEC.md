@@ -458,7 +458,7 @@ Flow Fetch CDKeys:
 | URL      | `https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material` |
 | Method   | `GET` |
 
-**Headers:** Dùng `build_rpc_headers(account, "act_hoyolab", game_info.get_page_info(""), page_name="")` từ `utils/helpers.py`; các giá trị RPC lấy từ config (RPC_CLIENT_TYPE, RPC_LANGUAGE, RPC_SHOW_TRANSLATED, RPC_SYS_VERSION).
+**Headers:** Dùng `build_rpc_headers(account, "act_hoyolab", game_info.get_page_info(""), page_name="")` từ `utils/helpers.py`; default `source_info` lấy từ `constants.DEFAULT_SOURCE_INFO`; các giá trị RPC lấy từ config (RPC_CLIENT_TYPE, RPC_LANGUAGE, RPC_SHOW_TRANSLATED, RPC_SYS_VERSION).
 
 **Params:**
 ```python
@@ -493,6 +493,7 @@ codes = [
 ```python
 params = {"region": region_value, "game_biz": game_info.game_biz}
 ```
+`region_value` = `REGIONS[game][region_code]`; trong code và dict UID trả về dùng **region code** (asia, usa, euro, tw). Xem `docs/REGIONS-EXPLAINED.md`.
 
 **Trích xuất UID:**
 ```python
@@ -528,7 +529,7 @@ params = {
     "cdkey": cdkey,
     "game_biz": game_info.game_biz,
     "lang": REDEEM_LANG,  # từ config (khác RPC_LANGUAGE)
-    "region": region_value,
+    "region": region_value,  # REGIONS[game][region_code]; hàm nhận region_code (asia, usa, euro, tw)
     "t": unix_ms(),
     "uid": uid,
 }
@@ -620,7 +621,7 @@ Game Genshin:
 
 ## 7. Output Format (Console)
 
-Header và footer dùng 50 dấu `=`; thời gian format `Time: %Y-%m-%d %H:%M:%S` (từ `main.print_header()`).
+Header và footer dùng `config.HEADER_WIDTH` ký tự `=` (mặc định 50); thời gian format `Time: %Y-%m-%d %H:%M:%S` (từ `main.print_header()`).
 
 ```
 ==================================================
@@ -675,7 +676,7 @@ DONE - 1.0s
 
 ### 7.2. Dual Output Mode (LOG_LEVEL)
 
-Hỗ trợ 2 format output thông qua environment variable `LOG_LEVEL`:
+Hỗ trợ 2 format output thông qua environment variable `LOG_LEVEL`. **Lưu ý:** `LOG_LEVEL` ở đây là **output format** (cách in kết quả), không phải log level (debug/info/warning).
 
 | Mode | Mô tả |
 |------|-------|
@@ -988,8 +989,8 @@ hoyoverse-utility/
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                 # Entry point
-│   ├── config.py               # Cấu hình tập trung (URLs, ORIGINS, RPC_*, REDEEM_*, settings)
-│   ├── constants.py            # Giá trị không phụ thuộc module khác (JSON_SEPARATORS, DEFAULT_CHROME_VERSION)
+│   ├── config.py               # Cấu hình tập trung (URLs, ORIGINS, RPC_*, REDEEM_*, HEADER_WIDTH, settings)
+│   ├── constants.py            # Giá trị không phụ thuộc module khác (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
 │   ├── api/
 │   │   ├── __init__.py
 │   │   ├── client.py           # HTTP client wrapper (retry, semaphore)
@@ -1013,7 +1014,10 @@ hoyoverse-utility/
 │   ├── test_fetch_cdkeys.py
 │   └── cookies.ps1.example
 ├── docs/
-│   └── SPEC.md                 # Tài liệu kỹ thuật (file này)
+│   ├── SPEC.md                 # Tài liệu kỹ thuật (file này)
+│   ├── REGIONS-EXPLAINED.md    # Giải thích region code vs giá trị API
+│   ├── PLAN-IMPROVEMENTS.md    # Kế hoạch cải thiện (Phase 1–3)
+│   └── ANALYSIS-CODEBASE.md    # Đánh giá codebase
 ├── requirements.txt
 └── README.md
 ```
@@ -1062,8 +1066,8 @@ log_info(acc.name, f"Genshin: UID {mask_uid(uid)}")
 
 ### 9.2. Centralized Config - Gom tất cả Constants
 
-- **`src/config.py`:** URLs, ORIGINS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
-- **`src/constants.py`:** Giá trị không phụ thuộc module khác: `JSON_SEPARATORS`, `DEFAULT_CHROME_VERSION`.
+- **`src/config.py`:** URLs, ORIGINS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `HEADER_WIDTH` (display), `DEFAULT_LOG_LEVEL`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
+- **`src/constants.py`:** Giá trị không phụ thuộc module khác: `JSON_SEPARATORS`, `DEFAULT_CHROME_VERSION`, `DEFAULT_SOURCE_INFO` (default x-rpc-source_info cho `build_rpc_headers`).
 - **`src/models/game.py`:** Game enum, GameInfo, REGIONS (xem snippet dưới).
 
 ```python
@@ -1116,6 +1120,8 @@ class Game(Enum):
     )
 
 # ==================== REGIONS ====================
+# Key = region code (thống nhất trong code: asia, usa, euro, tw)
+# Value = chuỗi gửi API (mỗi game khác nhau). Chi tiết: docs/REGIONS-EXPLAINED.md
 REGIONS: dict[Game, dict[str, str]] = {
     Game.GENSHIN: {
         'asia': 'os_asia',
@@ -1189,6 +1195,8 @@ MAX_RETRIES = 3
 RATE_LIMIT_DELAY = 5
 MIN_UID_LENGTH = 6
 DEFAULT_TIMEZONE = "Asia/Saigon"
+HEADER_WIDTH = 50              # Số ký tự "=" cho header/footer (main.print_header)
+DEFAULT_LOG_LEVEL = "human"    # Fallback khi LOG_LEVEL không set hoặc không hợp lệ
 CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 
 # RPC header values (single source cho checkin, redeem, helpers)
