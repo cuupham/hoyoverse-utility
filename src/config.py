@@ -77,6 +77,9 @@ CONNECTOR_LIMIT_PER_HOST = 10
 # Logger: default output mode khi LOG_LEVEL không set hoặc không hợp lệ
 DEFAULT_LOG_LEVEL = "human"
 
+# Display: độ rộng dòng header/footer (số ký tự "=")
+HEADER_WIDTH = 50
+
 # Display: từ khóa nhận diện "đã điểm danh trước đó" trong message
 CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 

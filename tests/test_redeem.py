@@ -29,7 +29,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.GENSHIN,
-                "os_asia",
+                "asia",
                 "800000001",
                 "GENSHINGIFT2024"
             )
@@ -47,7 +47,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.GENSHIN,
-                "os_asia",
+                "asia",
                 "800000001",
                 "USEDCODE123"
             )
@@ -65,7 +65,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.GENSHIN,
-                "os_asia",
+                "asia",
                 "800000001",
                 "EXPIREDCODE"
             )
@@ -83,7 +83,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.GENSHIN,
-                "os_asia",
+                "asia",
                 "800000001",
                 "INVALIDXXX"
             )
@@ -101,7 +101,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.STAR_RAIL,
-                "prod_official_asia",
+                "asia",
                 "1300000001",
                 "HSRGIFT2024"
             )
@@ -119,7 +119,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.GENSHIN,
-                "os_asia",
+                "asia",
                 "800000001",
                 "SOMECODE"
             )
@@ -142,7 +142,7 @@ class TestExchangeCdkey:
                     mock_session,
                     mock_account,
                     Game.GENSHIN,
-                    "os_euro",
+                    "euro",
                     "700000001",
                     codes
                 )
@@ -172,7 +172,7 @@ class TestExchangeCdkey:
                 mock_session,
                 mock_account,
                 Game.ZZZ,
-                "prod_gf_jp",
+                "asia",
                 "1000000001",
                 "SOMECODE"
             )
@@ -198,7 +198,7 @@ class TestRedeemCodesForRegion:
                     mock_session,
                     mock_account,
                     Game.GENSHIN,
-                    "os_asia",
+                    "asia",
                     "800000001",
                     codes
                 )
@@ -213,7 +213,7 @@ class TestRedeemCodesForRegion:
             mock_session,
             mock_account,
             Game.GENSHIN,
-            "os_asia",
+            "asia",
             "800000001",
             []
         )
@@ -239,7 +239,7 @@ class TestRedeemCodesForRegion:
                     mock_session,
                     mock_account,
                     Game.ZZZ,
-                    "prod_gf_jp",
+                    "asia",
                     "1000000001",
                     codes
                 )

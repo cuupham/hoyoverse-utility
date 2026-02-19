@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from src.api.client import create_session
 from src.api.checkin import check_cookie, run_checkin_for_account
 from src.api.redeem import fetch_all_cdkeys, fetch_all_uids, run_redeem_for_account
-from src.config import CHECKIN_ALREADY_SIGNED_KEYWORD
+from src.config import CHECKIN_ALREADY_SIGNED_KEYWORD, HEADER_WIDTH
 from src.models.account import Account
 from src.models.game import Game
 from src.utils.helpers import get_accounts_from_env
@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 
 def print_header() -> None:
     """In header của tool."""
-    log_print("=" * 50)
+    log_print("=" * HEADER_WIDTH)
     log_print("HOYOLAB AUTO TOOL")
     log_print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     log_print(f"Trace: {ctx.trace_id}")
-    log_print("=" * 50)
+    log_print("=" * HEADER_WIDTH)
 
 
 def print_section(title: str) -> None:
@@ -232,9 +232,9 @@ async def main():
         display_redeem(cdkeys, account_uids, redeem_results)
     
     # Bước 5: Kết thúc
-    log_print("=" * 50)
+    log_print("=" * HEADER_WIDTH)
     log_print(f"DONE - {ctx.elapsed_seconds:.1f}s")
-    log_print("=" * 50)
+    log_print("=" * HEADER_WIDTH)
 
 
 if __name__ == "__main__":
