@@ -90,25 +90,38 @@ hoyoverse-utility/
 │   └── hoyo-flow.yml          # GitHub Actions workflow
 ├── src/
 │   ├── main.py                # Entry point chính
-│   ├── config.py              # Cấu hình tập trung (URLs, RPC, redeem, settings)
-│   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION)
+│   ├── config.py              # Cấu hình tập trung (URLs, RPC, redeem, HEADER_WIDTH, settings)
+│   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
 │   ├── api/
 │   │   ├── client.py          # HTTP client với retry & semaphore
 │   │   ├── checkin.py         # API điểm danh
 │   │   └── redeem.py          # API nhập code
 │   ├── models/
 │   │   ├── account.py         # Model tài khoản
-│   │   └── game.py            # Model game & region
+│   │   └── game.py            # Model game & region (REGIONS = region code → API value)
 │   └── utils/
 │       ├── headers.py         # Dynamic User-Agent
 │       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, ...)
-│       ├── logger.py          # Logging với trace_id
-│       └── security.py        # Mask dữ liệu nhạy cảm
-├── tests/                     # Test suite
-├── docs/                      # Tài liệu kỹ thuật (SPEC.md)
+│       ├── logger.py         # Logging với trace_id
+│       └── security.py       # Mask dữ liệu nhạy cảm
+├── tests/                     # Test suite (pytest, region code = asia/usa/euro/tw)
+├── docs/
+│   ├── SPEC.md                # Tài liệu kỹ thuật đầy đủ
+│   ├── REGIONS-EXPLAINED.md   # Giải thích region code vs giá trị API
+│   ├── PLAN-IMPROVEMENTS.md   # Kế hoạch cải thiện (Phase 1–3)
+│   └── ANALYSIS-CODEBASE.md   # Đánh giá codebase
 ├── requirements.txt           # Dependencies
 └── README.md                  # File này
 ```
+
+### 📚 Tài liệu
+
+| File | Nội dung |
+|------|----------|
+| [**SPEC.md**](docs/SPEC.md) | Tài liệu kỹ thuật: flow, API, config, output format |
+| [**REGIONS-EXPLAINED.md**](docs/REGIONS-EXPLAINED.md) | Giải thích region code (asia, usa, euro, tw) vs giá trị API theo từng game |
+| [**PLAN-IMPROVEMENTS.md**](docs/PLAN-IMPROVEMENTS.md) | Kế hoạch cải thiện (Phase 1–3) |
+| [**ANALYSIS-CODEBASE.md**](docs/ANALYSIS-CODEBASE.md) | Đánh giá ưu/nhược điểm và gợi ý tối ưu |
 
 ## 🔧 Phát triển local
 
@@ -159,7 +172,7 @@ python -m pytest tests -v
 20/01/2026 07:38:24 [INFO]
 20/01/2026 07:38:24 [INFO] === ACC_1 ===
 20/01/2026 07:38:24 [INFO]   Genshin Impact:
-20/01/2026 07:38:24 [INFO]     os_asia:
+20/01/2026 07:38:24 [INFO]     asia:
 20/01/2026 07:38:24 [INFO]       ABC: ✓ Thành công
 20/01/2026 07:38:24 [INFO]
 20/01/2026 07:38:24 [INFO] ==================================================
@@ -175,18 +188,21 @@ python -m pytest tests -v
 |----------|-------|----------|
 | `ACC_*` | Cookie strings (ACC_1, ACC_2,...) | Bắt buộc |
 | `DEBUG` | Bật debug mode | `""` |
-| `LOG_LEVEL` | Output format: `human`, `json`, `both` | `human` |
+| `LOG_LEVEL` | **Output format** (không phải log level): `human`, `json`, `both` | `human` |
 
 ### Settings (trong [`src/config.py`](src/config.py))
 
 ```python
 SEMAPHORE_LIMIT = 20      # Số request song song tối đa
-REDEEM_DELAY = 5         # Giây giữa mỗi lần nhập code
+REDEEM_DELAY = 5          # Giây giữa mỗi lần nhập code
 REQUEST_TIMEOUT = 30      # Timeout request (giây)
 CONNECT_TIMEOUT = 10      # Timeout kết nối (giây)
 MAX_RETRIES = 3           # Số lần thử lại khi lỗi
-RATE_LIMIT_DELAY = 5       # Giây chờ khi bị rate limit (429)
+RATE_LIMIT_DELAY = 5      # Giây chờ khi bị rate limit (429)
+HEADER_WIDTH = 50         # Số ký tự "=" cho header/footer (display)
 ```
+
+Display và RPC: `HEADER_WIDTH`, `DEFAULT_SOURCE_INFO` (constants), `DEFAULT_LOG_LEVEL` — xem [`docs/SPEC.md`](docs/SPEC.md) §9.2.
 
 ## ❓ Troubleshooting
 
@@ -237,10 +253,10 @@ ABC: ⏭ Đã skip (expired/invalid từ region trước)
 Xem chi tiết tại [`CHANGELOG.md`](CHANGELOG.md)
 
 **Cập nhật gần đây:**
-- **DRY & Single source:** RPC headers, page names, message skip gom vào `config.py` / `constants.py`
-- **ZZZ Stealth Mode:** Tối ưu headers để giống app thật
-- **Dynamic Page Info:** Hỗ trợ game-specific gameId và pageType
-- **Log Optimization:** Ẩn account không có character/UID
+- **Test & fixture:** Dùng đúng region code (asia, usa, euro, tw) trong test redeem và mock UID; shape khớp production. Xem [`docs/REGIONS-EXPLAINED.md`](docs/REGIONS-EXPLAINED.md).
+- **DRY & Single source:** `HEADER_WIDTH` (config), `DEFAULT_SOURCE_INFO` (constants); LOG_LEVEL ghi rõ = output format trong README/SPEC.
+- **Docs:** Thêm REGIONS-EXPLAINED, PLAN-IMPROVEMENTS, ANALYSIS-CODEBASE; cập nhật SPEC theo config/constants và region.
+- **DRY (trước đó):** RPC headers, page names, message skip trong `config.py` / `constants.py`; ZZZ Stealth Mode; Dynamic Page Info.
 
 ## 🔐 Bảo mật
 
