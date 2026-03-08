@@ -51,7 +51,7 @@ COMMON_HEADERS = {
 ### 3.2. Origins
 
 > [!NOTE]
-> `ORIGINS` dict được định nghĩa tại [Section 9.2 - Centralized Config](#92-centralized-config---gom-tất-cả-constants)
+> `ORIGINS` dict được định nghĩa tại `src/config.py`
 
 ### 3.3. Helper Functions (cần implement)
 
@@ -278,7 +278,7 @@ codes = [
 ```python
 params = {"region": region_value, "game_biz": game_info.game_biz}
 ```
-`region_value` = `REGIONS[game][region_code]`; trong code và dict UID trả về dùng **region code** (asia, usa, euro, tw). Xem `docs/REGIONS-EXPLAINED.md`.
+`region_value` = `REGIONS[game][region_code]`; trong code và dict UID trả về dùng **region code** (asia, usa, euro, tw). Xem định nghĩa `REGIONS` trong `src/models/game.py`.
 
 **Trích xuất UID:**
 ```python

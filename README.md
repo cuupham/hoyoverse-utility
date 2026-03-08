@@ -113,9 +113,9 @@ hoyoverse-utility/
 │   ├── configs/               # Cấu hình phụ trợ cho Pytest
 │   ├── integration/           # Chạy End-to-end integration tests
 │   ├── scripts/               # Script hỗ trợ Debug API
-│   └── unit/                  # Unit tests cho từng module
-├── docs/                      # Tài liệu về APIs/Plans/Audit
-├── requirements/              # Chứa SPEC file mô tả nghiệp vụ Tool
+│   ├── unit/                  # Unit tests cho từng module
+│   └── conftest.py            # Fixtures & Mock data chung
+├── requirements/              # Chứa SPEC và Architecture mô tả nghiệp vụ Tool
 ├── requirements.txt           # Product dependencies (Không bao gồm Pytest libs)
 └── README.md                  # File này
 ```
@@ -199,7 +199,7 @@ RATE_LIMIT_DELAY = 5      # Giây chờ khi bị rate limit (429)
 HEADER_WIDTH = 50         # Số ký tự "=" cho header/footer (display)
 ```
 
-Display và RPC: `HEADER_WIDTH`, `DEFAULT_SOURCE_INFO` (constants), `DEFAULT_LOG_LEVEL` — xem [`docs/SPEC.md`](docs/SPEC.md) §9.2.
+Display và RPC: `HEADER_WIDTH`, `DEFAULT_SOURCE_INFO` (constants), `DEFAULT_LOG_LEVEL` — xem `src/config.py` và `src/constants.py`.
 
 ## ❓ Troubleshooting
 
@@ -246,8 +246,6 @@ ABC: ⏭ Đã skip (expired/invalid từ region trước)
 - Chờ code mới từ livestream/event
 
 ## 📝 Changelog
-
-Xem chi tiết tại [`CHANGELOG.md`](CHANGELOG.md)
 
 **Cập nhật gần đây:**
 

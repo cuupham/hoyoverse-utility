@@ -105,7 +105,7 @@ def log_result(data: dict, human_msg: str) -> None:
             "timestamp": datetime.now().isoformat(),
         }))
 
-# Note: logger và ctx được import từ phần còn lại của logger.py (Section 8.6)
+# Note: logger và ctx được import từ phần còn lại của logger.py
 ```
 
 **Ví dụ sử dụng:**
@@ -254,7 +254,7 @@ async def safe_api_call(
 ### 8.5. Semaphore giới hạn Concurrent Requests
 
 > [!NOTE]
-> Semaphore đã được tích hợp trong `safe_api_call` (xem Section 8.4).
+> Semaphore đã được tích hợp trong `safe_api_call` (xem `src/api/client.py`).
 > - `SEMAPHORE_LIMIT = 20` concurrent requests max
 > - Ví dụ: 48 requests → chỉ 20 chạy cùng lúc, còn lại đợi
 
