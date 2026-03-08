@@ -1,6 +1,7 @@
 """Pytest fixtures và mock data cho testing"""
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from typing import Any
 
 from src.models.account import Account
@@ -21,14 +22,13 @@ def mock_accounts() -> list[Account]:
     return [
         Account.from_env(
             "ACC_1",
-            "ltoken_v2=mock_ltoken_1; ltuid_v2=111111111; cookie_token_v2=mock_cookie_1; account_id_v2=111111111; _MHYUUID=mock-mhyuuid-1111; _HYVUUID=mock-hyvuuid-1111"
+            "ltoken_v2=mock_ltoken_1; ltuid_v2=111111111; cookie_token_v2=mock_cookie_1; account_id_v2=111111111; _MHYUUID=mock-mhyuuid-1111; _HYVUUID=mock-hyvuuid-1111",
         ),
         Account.from_env(
             "ACC_2",
-            "ltoken_v2=mock_ltoken_2; ltuid_v2=222222222; cookie_token_v2=mock_cookie_2; account_id_v2=222222222; _MHYUUID=mock-mhyuuid-2222; _HYVUUID=mock-hyvuuid-2222"
+            "ltoken_v2=mock_ltoken_2; ltuid_v2=222222222; cookie_token_v2=mock_cookie_2; account_id_v2=222222222; _MHYUUID=mock-mhyuuid-2222; _HYVUUID=mock-hyvuuid-2222",
         ),
     ]
-
 
 
 # ==================== MOCK CDKEYS ====================
@@ -122,27 +122,13 @@ def mock_uids_empty() -> dict[Game, dict[str, str]]:
 @pytest.fixture
 def mock_check_cookie_success() -> dict[str, Any]:
     """Mock response - check cookie thành công"""
-    return {
-        "success": True,
-        "data": {
-            "retcode": 0,
-            "message": "OK",
-            "data": {"email_mask": "c****u9991@gmail.com"}
-        }
-    }
+    return {"success": True, "data": {"retcode": 0, "message": "OK", "data": {"email_mask": "c****u9991@gmail.com"}}}
 
 
 @pytest.fixture
 def mock_check_cookie_invalid() -> dict[str, Any]:
     """Mock response - cookie hết hạn"""
-    return {
-        "success": True,
-        "data": {
-            "retcode": -100,
-            "message": "Please login",
-            "data": None
-        }
-    }
+    return {"success": True, "data": {"retcode": -100, "message": "Please login", "data": None}}
 
 
 @pytest.fixture
@@ -153,12 +139,8 @@ def mock_checkin_info_not_signed() -> dict[str, Any]:
         "data": {
             "retcode": 0,
             "message": "OK",
-            "data": {
-                "total_sign_day": 10,
-                "is_sign": False,
-                "today": "2026-01-18"
-            }
-        }
+            "data": {"total_sign_day": 10, "is_sign": False, "today": "2026-01-18"},
+        },
     }
 
 
@@ -167,42 +149,20 @@ def mock_checkin_info_signed() -> dict[str, Any]:
     """Mock response - đã điểm danh"""
     return {
         "success": True,
-        "data": {
-            "retcode": 0,
-            "message": "OK",
-            "data": {
-                "total_sign_day": 11,
-                "is_sign": True,
-                "today": "2026-01-18"
-            }
-        }
+        "data": {"retcode": 0, "message": "OK", "data": {"total_sign_day": 11, "is_sign": True, "today": "2026-01-18"}},
     }
 
 
 @pytest.fixture
 def mock_checkin_sign_success() -> dict[str, Any]:
     """Mock response - điểm danh POST thành công"""
-    return {
-        "success": True,
-        "data": {
-            "retcode": 0,
-            "message": "OK",
-            "data": {"code": "", "risk_code": 0}
-        }
-    }
+    return {"success": True, "data": {"retcode": 0, "message": "OK", "data": {"code": "", "risk_code": 0}}}
 
 
 @pytest.fixture
 def mock_checkin_no_character() -> dict[str, Any]:
     """Mock response - không có nhân vật"""
-    return {
-        "success": True,
-        "data": {
-            "retcode": -10002,
-            "message": "No in-game character detected",
-            "data": None
-        }
-    }
+    return {"success": True, "data": {"retcode": -10002, "message": "No in-game character detected", "data": None}}
 
 
 # Format: safe_api_call returns {"success": True, "data": <api_response>}
@@ -215,7 +175,7 @@ def mock_redeem_success() -> dict[str, Any]:
             "retcode": 0,
             "message": "OK",
             "data": None,
-        }
+        },
     }
 
 
@@ -228,7 +188,7 @@ def mock_redeem_already_claimed() -> dict[str, Any]:
             "retcode": -2017,
             "message": "Redemption code has been used",
             "data": None,
-        }
+        },
     }
 
 
@@ -241,7 +201,7 @@ def mock_redeem_expired() -> dict[str, Any]:
             "retcode": -2001,
             "message": "Redemption code has expired",
             "data": None,
-        }
+        },
     }
 
 
@@ -254,7 +214,7 @@ def mock_redeem_invalid() -> dict[str, Any]:
             "retcode": -2003,
             "message": "Invalid redemption code",
             "data": None,
-        }
+        },
     }
 
 
@@ -267,7 +227,7 @@ def mock_redeem_cooldown() -> dict[str, Any]:
             "retcode": -2016,
             "message": "Redemption in cooldown",
             "data": None,
-        }
+        },
     }
 
 
@@ -280,7 +240,7 @@ def mock_redeem_low_rank() -> dict[str, Any]:
             "retcode": -2011,
             "message": "You do not meet the Adventure Rank requirements",
             "data": None,
-        }
+        },
     }
 
 

@@ -1,4 +1,5 @@
 """Helper functions - Các hàm tiện ích"""
+
 import os
 import time
 from datetime import datetime
@@ -21,7 +22,7 @@ from src.constants import DEFAULT_SOURCE_INFO
 
 def current_hour() -> str:
     """Trả về giờ hiện tại dạng 2 chữ số (00-23)"""
-    return f'{datetime.now().hour:02}'
+    return f"{datetime.now().hour:02}"
 
 
 def rpc_weekday() -> str:
@@ -49,6 +50,7 @@ def build_rpc_headers(
     page_info: str,
     page_name: str,
     source_info: str = DEFAULT_SOURCE_INFO,
+    game: "Game | None" = None,
 ) -> dict[str, str]:
     """Tạo headers chung cho các API RPC (fetch CDKeys, UID, redeem).
 
@@ -58,11 +60,12 @@ def build_rpc_headers(
         page_info: Chuỗi JSON x-rpc-page_info.
         page_name: Giá trị x-rpc-page_name.
         source_info: Chuỗi JSON x-rpc-source_info.
+        game: Game enum để lấy game-specific headers.
 
     Returns:
         Dict headers đủ cho request.
     """
-    return {
+    headers = {
         **COMMON_HEADERS,
         **ORIGINS[origin_key],
         "Cookie": account.cookie_str,
@@ -79,3 +82,13 @@ def build_rpc_headers(
         "x-rpc-timezone": DEFAULT_TIMEZONE,
         "x-rpc-weekday": rpc_weekday(),
     }
+
+    # Thêm game-specific headers nếu có
+    if game:
+        game_info = game.value
+        if game_info.signgame:
+            headers["x-rpc-signgame"] = game_info.signgame
+        else:
+            headers["x-rpc-lrsag"] = ""
+
+    return headers

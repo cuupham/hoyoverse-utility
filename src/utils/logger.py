@@ -1,4 +1,5 @@
 """Logger utilities - Structured logging với trace_id"""
+
 import json
 import logging
 import os
@@ -31,20 +32,30 @@ OUTPUT_MODE = get_output_mode()
 # ==================== TRACE ID FILTER ====================
 class TraceIdFilter(logging.Filter):
     """Filter thêm trace_id vào mỗi log record"""
+
     def __init__(self, trace_id: str):
         super().__init__()
         self.trace_id = trace_id
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.trace_id = self.trace_id
         return True
 
 
+class ForceFlushStreamHandler(logging.StreamHandler):
+    """Handler tự động flush buffer sau mỗi dòng log (Tốt cho CI/CD)"""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        self.flush()
+
+
 # ==================== EXECUTION CONTEXT ====================
 class ExecutionContext:
     """Singleton chứa context cho 1 lần chạy"""
+
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -52,35 +63,27 @@ class ExecutionContext:
             cls._instance.start_time = datetime.now()
             cls._instance._setup_logging()
         return cls._instance
-    
+
     def _setup_logging(self) -> None:
         """Setup logging với trace_id filter và force flush
-        
-        Dùng custom handler để đảm bảo mỗi log được flush ngay,
+
+        Dùng ForceFlushStreamHandler để đảm bảo mỗi log được flush ngay,
         tránh interleave khi có nhiều async tasks log cùng lúc.
         """
         # Tạo custom handler với force flush
-        handler = logging.StreamHandler()
+        handler = ForceFlushStreamHandler()
         handler.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
-        handler.setFormatter(logging.Formatter(
-            fmt="%(asctime)s [%(levelname)s] %(message)s",
-            datefmt="%d/%m/%Y %H:%M:%S"
-        ))
-        
-        # Override emit để force flush sau mỗi log
-        original_emit = handler.emit
-        def flush_emit(record):
-            original_emit(record)
-            handler.flush()
-        handler.emit = flush_emit
-        
+        handler.setFormatter(
+            logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%d/%m/%Y %H:%M:%S")
+        )
+
         # Cấu hình root logger
         root_logger = logging.getLogger()
         root_logger.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
         root_logger.handlers.clear()  # Xóa default handlers
         root_logger.addHandler(handler)
         root_logger.addFilter(TraceIdFilter(self.trace_id))
-    
+
     @property
     def elapsed_seconds(self) -> float:
         """Thời gian đã chạy (giây)"""
@@ -117,31 +120,36 @@ def log_result(data: dict, human_msg: str) -> None:
     """Output theo OUTPUT_MODE setting"""
     if OUTPUT_MODE in (OutputMode.HUMAN, OutputMode.BOTH):
         logger.info(human_msg)
-    
+
     if OUTPUT_MODE in (OutputMode.JSON, OutputMode.BOTH):
-        print(json.dumps({
-            **data,
-            "trace_id": ctx.trace_id,
-            "timestamp": datetime.now().isoformat(),
-        }), flush=True)
+        print(
+            json.dumps(
+                {
+                    **data,
+                    "trace_id": ctx.trace_id,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            ),
+            flush=True,
+        )
 
 
 def log_print(message: str = "") -> None:
     """Thay thế print() để đảm bảo output ordering nhất quán
-    
-    Trong CI environments (GitHub Actions), stdout/stderr có thể bị 
+
+    Trong CI environments (GitHub Actions), stdout/stderr có thể bị
     buffer khác nhau. Dùng logger.info thay vì print để đảm bảo
     thứ tự output đúng.
-    
+
     Xử lý multiline: Mỗi dòng được log riêng để có prefix đầy đủ.
     """
     if not message:
         # Empty line
         logger.info("")
         return
-    
+
     # Split by newline và log từng dòng riêng
     # Điều này đảm bảo mỗi dòng có prefix [trace_id][INFO]
-    lines = message.split('\n')
+    lines = message.split("\n")
     for line in lines:
         logger.info(line)
