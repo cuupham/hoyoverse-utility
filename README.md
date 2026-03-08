@@ -1,5 +1,9 @@
 # 🎮 HoYoLab Auto Tool
 
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game HoYoverse thông qua GitHub Actions.
 
 ## ✨ Tính năng
@@ -90,7 +94,7 @@ hoyoverse-utility/
 │   └── hoyo-flow.yml          # GitHub Actions workflow
 ├── src/
 │   ├── main.py                # Entry point chính
-│   ├── config.py              # Cấu hình tập trung (URLs, RPC, redeem, HEADER_WIDTH, settings)
+│   ├── config.py              # Cấu hình tập trung (URLs, RPC, SYSTEM_MESSAGES, settings)
 │   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
 │   ├── api/
 │   │   ├── client.py          # HTTP client với retry & semaphore
@@ -104,24 +108,17 @@ hoyoverse-utility/
 │       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, ...)
 │       ├── logger.py         # Logging với trace_id
 │       └── security.py       # Mask dữ liệu nhạy cảm
-├── tests/                     # Test suite (pytest, region code = asia/usa/euro/tw)
-├── docs/
-│   ├── SPEC.md                # Tài liệu kỹ thuật đầy đủ
-│   ├── REGIONS-EXPLAINED.md   # Giải thích region code vs giá trị API
-│   ├── PLAN-IMPROVEMENTS.md   # Kế hoạch cải thiện (Phase 1–3)
-│   └── ANALYSIS-CODEBASE.md   # Đánh giá codebase
-├── requirements.txt           # Dependencies
+├── tests/                     # Test suite
+│   ├── auth/                  # Các file authentication local (không bị push lên repo)
+│   ├── configs/               # Cấu hình phụ trợ cho Pytest
+│   ├── integration/           # Chạy End-to-end integration tests
+│   ├── scripts/               # Script hỗ trợ Debug API
+│   └── unit/                  # Unit tests cho từng module
+├── docs/                      # Tài liệu về APIs/Plans/Audit
+├── requirements/              # Chứa SPEC file mô tả nghiệp vụ Tool
+├── requirements.txt           # Product dependencies (Không bao gồm Pytest libs)
 └── README.md                  # File này
 ```
-
-### 📚 Tài liệu
-
-| File | Nội dung |
-|------|----------|
-| [**SPEC.md**](docs/SPEC.md) | Tài liệu kỹ thuật: flow, API, config, output format |
-| [**REGIONS-EXPLAINED.md**](docs/REGIONS-EXPLAINED.md) | Giải thích region code (asia, usa, euro, tw) vs giá trị API theo từng game |
-| [**PLAN-IMPROVEMENTS.md**](docs/PLAN-IMPROVEMENTS.md) | Kế hoạch cải thiện (Phase 1–3) |
-| [**ANALYSIS-CODEBASE.md**](docs/ANALYSIS-CODEBASE.md) | Đánh giá ưu/nhược điểm và gợi ý tối ưu |
 
 ## 🔧 Phát triển local
 
@@ -135,21 +132,21 @@ python -m venv .venv
 .\.venv\Scripts\activate  # Windows
 source .venv/bin/activate  # Linux/Mac
 
-# Cài đặt dependencies
+# Cài đặt dependencies (Core)
 pip install -r requirements.txt
 
 # Cấu hình cookie cho local test
-# 1. Copy tests/cookies.ps1.example -> .env.ps1
-# 2. Điền cookies vào .env.ps1
+# 1. Copy tests/auth/cookies.ps1.example -> tests/auth/.env.ps1
+# 2. Điền cookies vào tests/auth/.env.ps1
 # 3. Chạy file:
-.\.env.ps1
+.\tests\auth\.env.ps1
 
 # Chạy tool
 python -m src.main
 
 # Chạy test (Mock data - không cần cookie)
-pip install -r tests/requirements.txt
-python -m pytest tests -v
+pip install -r tests/configs/requirements.txt
+python -m pytest tests/ -v
 ```
 
 ## 📊 Ví dụ output
@@ -253,9 +250,7 @@ ABC: ⏭ Đã skip (expired/invalid từ region trước)
 Xem chi tiết tại [`CHANGELOG.md`](CHANGELOG.md)
 
 **Cập nhật gần đây:**
-- **Test & fixture:** Dùng đúng region code (asia, usa, euro, tw) trong test redeem và mock UID; shape khớp production. Xem [`docs/REGIONS-EXPLAINED.md`](docs/REGIONS-EXPLAINED.md).
-- **DRY & Single source:** `HEADER_WIDTH` (config), `DEFAULT_SOURCE_INFO` (constants); LOG_LEVEL ghi rõ = output format trong README/SPEC.
-- **Docs:** Thêm REGIONS-EXPLAINED, PLAN-IMPROVEMENTS, ANALYSIS-CODEBASE; cập nhật SPEC theo config/constants và region.
+
 - **DRY (trước đó):** RPC headers, page names, message skip trong `config.py` / `constants.py`; ZZZ Stealth Mode; Dynamic Page Info.
 
 ## 🔐 Bảo mật

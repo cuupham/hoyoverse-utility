@@ -1,13 +1,14 @@
 """Security utilities - Mask sensitive data"""
+
 from src.config import MIN_UID_LENGTH
 
 
 def mask_uid(uid: str | int | None) -> str:
     """Mask UID: 123456789 → 123***789
-    
+
     Args:
         uid: UID của player (string hoặc int)
-        
+
     Returns:
         Masked UID string
     """

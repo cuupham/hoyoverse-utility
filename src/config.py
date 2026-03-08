@@ -1,4 +1,5 @@
 """Centralized configuration - Tất cả constants và settings"""
+
 import json
 import os
 
@@ -19,55 +20,51 @@ COMMON_HEADERS = {
 
 # ==================== ORIGINS ====================
 ORIGINS = {
-    'hoyolab': {
-        'origin': 'https://www.hoyolab.com',
-        'referer': 'https://www.hoyolab.com/',
+    "hoyolab": {
+        "origin": "https://www.hoyolab.com",
+        "referer": "https://www.hoyolab.com/",
     },
-    'act_hoyolab': {
-        'origin': 'https://act.hoyolab.com',
-        'referer': 'https://act.hoyolab.com/',
+    "act_hoyolab": {
+        "origin": "https://act.hoyolab.com",
+        "referer": "https://act.hoyolab.com/",
     },
 }
 
 # ==================== API URLs ====================
 URLS = {
     # Cookie validation
-    'check_cookie': 'https://bbs-api-os.hoyolab.com/community/misc/wapi/account/user_brief_info',
-    
+    "check_cookie": "https://bbs-api-os.hoyolab.com/community/misc/wapi/account/user_brief_info",
     # Check-in
-    'checkin_info': {
-        'gs': 'https://sg-hk4e-api.hoyolab.com/event/sol/info',
-        'sr': 'https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/info',
-        'zzz': 'https://sg-public-api.hoyolab.com/event/luna/zzz/os/info',
+    "checkin_info": {
+        "gs": "https://sg-hk4e-api.hoyolab.com/event/sol/info",
+        "sr": "https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/info",
+        "zzz": "https://sg-public-api.hoyolab.com/event/luna/zzz/os/info",
     },
-    'checkin_sign': {
-        'gs': 'https://sg-hk4e-api.hoyolab.com/event/sol/sign?lang=en-us',
-        'sr': 'https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/sign',
-        'zzz': 'https://sg-public-api.hoyolab.com/event/luna/zzz/os/sign',
+    "checkin_sign": {
+        "gs": "https://sg-hk4e-api.hoyolab.com/event/sol/sign?lang=en-us",
+        "sr": "https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/sign",
+        "zzz": "https://sg-public-api.hoyolab.com/event/luna/zzz/os/sign",
     },
-    
     # CDKeys
-    'fetch_cdkeys': 'https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material',
-    
+    "fetch_cdkeys": "https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material",
     # UID
-    'fetch_uid': 'https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken',
-    
+    "fetch_uid": "https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken",
     # Redeem
-    'redeem': {
-        'gs': 'https://public-operation-hk4e.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl',
-        'sr': 'https://public-operation-hkrpg.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl',
-        'zzz': 'https://public-operation-nap.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl',
+    "redeem": {
+        "gs": "https://public-operation-hk4e.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl",
+        "sr": "https://public-operation-hkrpg.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl",
+        "zzz": "https://public-operation-nap.hoyolab.com/common/apicdkey/api/webExchangeCdkeyHyl",
     },
 }
 
 # ==================== SETTINGS ====================
-SEMAPHORE_LIMIT = 20      # Max concurrent requests
-REDEEM_DELAY = 5          # Seconds between redeem codes
-REQUEST_TIMEOUT = 30      # Total request timeout
-CONNECT_TIMEOUT = 10      # Connection timeout
-MAX_RETRIES = 3           # Retry attempts
-RATE_LIMIT_DELAY = 5      # Seconds to wait when rate limited (429)
-MIN_UID_LENGTH = 6        # UIDs shorter than this are masked entirely
+SEMAPHORE_LIMIT = 20  # Max concurrent requests
+REDEEM_DELAY = 5  # Seconds between redeem codes
+REQUEST_TIMEOUT = 30  # Total request timeout
+CONNECT_TIMEOUT = 10  # Connection timeout
+MAX_RETRIES = 3  # Retry attempts
+RATE_LIMIT_DELAY = 5  # Seconds to wait when rate limited (429)
+MIN_UID_LENGTH = 6  # UIDs shorter than this are masked entirely
 DEFAULT_TIMEZONE = "Asia/Saigon"  # Khớp với curl của bạn
 
 # Connection pool (client session)
@@ -100,6 +97,7 @@ COOKIE_CHECK_PAGE_INFO = json.dumps(
     {"pageName": PAGE_NAME_HOME, "pageType": "", "pageId": "", "pageArrangement": "", "gameId": ""},
     separators=JSON_SEPARATORS,
 )
+
 
 # Cookie check API (user_brief_info) - x-rpc-app_version
 # Lấy từ env COOKIE_CHECK_APP_VERSION; nếu không set thì gửi rỗng (API vẫn chấp nhận).
@@ -135,3 +133,22 @@ SKIP_GLOBALLY_RETCODES = {-2016, -2001}
 
 # Combined: cả 2 đều skip codes còn lại trong region hiện tại
 SKIP_REMAINING_RETCODES = SKIP_REMAINING_IN_REGION | SKIP_GLOBALLY_RETCODES
+
+# ==================== SYSTEM_MESSAGES ====================
+SYSTEM_MESSAGES = {
+    "CHECKIN_SUCCESS": "Điểm danh thành công",
+    "CHECKIN_ALREADY": "Đã điểm danh trước đó",
+    "VALIDATION_VALID": "Hợp lệ",
+    "VALIDATION_ALL_FAILED": "Tất cả cookies đều không hợp lệ!",
+    "VALIDATION_NONE_FOUND": "Không tìm thấy account nào trong environment variables!",
+    "VALIDATION_NONE_VALID": "Không có account nào hợp lệ để tiếp tục!",
+    "REDEEM_NO_CODES": "Không có codes nào để redeem",
+    "REDEEM_NO_UIDS": "Tất cả accounts đều không có UID - không thể redeem!",
+    "SYSTEM_NO_CODES": "Không có codes",
+    "SYSTEM_CODES_FOUND": "codes",
+    "SYSTEM_NO_UIDS": "Không có UID nào",
+    "ERR_NETWORK": "Network connection failed",
+    "ERR_TIMEOUT": "Request timed out",
+    "ERR_INVALID_JSON": "Response not JSON",
+    "ERR_UNKNOWN_SECURE": "Request failed (details hidden for security)",
+}
