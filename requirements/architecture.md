@@ -172,11 +172,11 @@ hoyoverse-utility/
 │   ├── test_core.py
 │   ├── test_fetch_cdkeys.py
 │   └── cookies.ps1.example
-├── docs/
-│   ├── SPEC.md                 # Tài liệu kỹ thuật (file này)
-│   ├── REGIONS-EXPLAINED.md    # Giải thích region code vs giá trị API
-│   ├── PLAN-IMPROVEMENTS.md    # Kế hoạch cải thiện (Phase 1–3)
-│   └── ANALYSIS-CODEBASE.md    # Đánh giá codebase
+├── requirements/               # Tài liệu kỹ thuật
+│   ├── SPEC.md                 # System Specification
+│   ├── architecture.md         # Kiến trúc hệ thống (file này)
+│   ├── api_contract.md         # API Contract
+│   └── error_codes.md          # Error Handling & Codes
 ├── requirements.txt
 └── README.md
 ```
@@ -280,7 +280,7 @@ class Game(Enum):
 
 # ==================== REGIONS ====================
 # Key = region code (thống nhất trong code: asia, usa, euro, tw)
-# Value = chuỗi gửi API (mỗi game khác nhau). Chi tiết: docs/REGIONS-EXPLAINED.md
+# Value = chuỗi gửi API (mỗi game khác nhau).
 REGIONS: dict[Game, dict[str, str]] = {
     Game.GENSHIN: {
         'asia': 'os_asia',

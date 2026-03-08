@@ -23,7 +23,7 @@ Dự án đã được phân tách thành các tài liệu nhỏ để dễ tra 
 | Zenless Zone Zero | `zzz` |
 
 > [!NOTE]
-> Chi tiết đầy đủ về Game ID, Act ID, Game Biz xem tại [Section 9.2 - Centralized Config](#92-centralized-config---gom-tất-cả-constants)
+> Chi tiết đầy đủ về Game ID, Act ID, Game Biz xem tại `src/models/game.py` (class `GameInfo`)
 
 ### 1.2. Servers/Regions
 
@@ -35,7 +35,7 @@ Dự án đã được phân tách thành các tài liệu nhỏ để dễ tra 
 | TW/HK  | `tw` |
 
 > [!NOTE]
-> Chi tiết region codes theo từng game xem tại [Section 9.2 - REGIONS dict](#92-centralized-config---gom-tất-cả-constants)
+> Chi tiết region codes theo từng game xem tại `src/models/game.py` (dictionary `REGIONS`)
 
 ### 1.3. Quy tắc nghiệp vụ
 
@@ -165,7 +165,7 @@ ltuid = acc.cookies.get("ltuid_v2")
 
 ---
 
-## 11. GitHub Actions Workflow (Đề xuất)
+## 3. GitHub Actions Workflow (Đề xuất)
 
 ```yaml
 name: HoYoLab Daily Check-in & Redeem
@@ -210,7 +210,7 @@ jobs:
 
 ---
 
-## 12. Lưu ý quan trọng
+## 4. Lưu ý quan trọng
 
 > [!IMPORTANT]
 > - Cookies có thể hết hạn sau một thời gian, cần update lại trong GitHub Secrets
@@ -229,29 +229,35 @@ jobs:
 
 ---
 
-## 14. Testing
+## 5. Testing
 
 Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra toàn bộ logic nghiệp vụ mà không cần gọi API thực tế (Mocking).
 
-### 14.1. Cấu trúc Testing
+### 5.1. Cấu trúc Testing
 
 ```
 tests/
-├── conftest.py          # Fixtures & Mock data chung
-├── test_checkin.py      # Test logic điểm danh (Sol/Luna)
-├── test_redeem.py       # Test logic đổi code & cross-region skip
-├── test_core.py         # Test models, utils và session isolation
-└── cookies.ps1.example  # Template hướng dẫn set cookies local
+├── auth/                  # Các file auth local (cookies.ps1.example)
+├── configs/               # Cấu hình phụ trợ cho Pytest
+├── integration/           # End-to-end integration tests (test_integration.py)
+├── scripts/               # Script hỗ trợ Debug API (debug_checkin_info.py)
+├── unit/                  # Unit tests chi tiết
+│   ├── test_checkin.py    # Test logic điểm danh (Sol/Luna)
+│   ├── test_core.py       # Test models, utils và session isolation
+│   ├── test_coverage_audit.py
+│   ├── test_fetch_cdkeys.py
+│   └── test_redeem.py     # Test đổi code & cross-region skip
+└── conftest.py            # Fixtures & Mock data chung
 ```
 
-### 14.2. Các kịch bản Test quan trọng
+### 5.2. Các kịch bản Test quan trọng
 
 - **Session Isolation**: Đảm bảo `ClientSession` dùng `DummyCookieJar` để không bị rò rỉ cookie giữa các tài khoản khi chạy song song.
 - **Header Differentiation**: Kiểm tra `x-rpc-*` headers được gửi đúng theo từng loại game (Sol vs Luna).
 - **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` (hết hạn), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
 - **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `account_id_v2`,...).
 
-### 14.3. Cách chạy Test
+### 5.3. Cách chạy Test
 
 ```bash
 # Cài đặt pytest-asyncio trước
@@ -263,7 +269,7 @@ pytest tests
 
 ---
 
-## 15. Roadmap & Tương lai (Planned)
+## 6. Roadmap & Tương lai (Planned)
 
 ### 🚀 Smart Version Detection
 Tự động săn phiên bản HoYoLab mới nhất từ App Store (iTunes API lookup ID `1559483982`) để thay thế việc set cứng `APP_VERSION`. Điều này giúp bypass các đợt cập nhật app bất ngờ của HoYoverse.
