@@ -211,3 +211,4 @@ __marimo__/
 .env.ps1
 .agent/
 .brain/
+docs/
