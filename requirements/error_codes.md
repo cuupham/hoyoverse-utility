@@ -44,7 +44,7 @@ DONE - 1.0s
 ==================================================
 ```
 
-### 7.1. Chiến lược Centrailized Logging (Gom log)
+### 7.1. Chiến lược Centralized Logging (Gom log)
 
 Để tối ưu hiệu năng (chạy song song) mà vẫn giữ log dễ đọc, tool áp dụng chiến lược:
 
@@ -55,84 +55,20 @@ DONE - 1.0s
 - Không bị xen kẽ (interleave) log khi nhiều account chạy cùng lúc.
 - Tốc độ xử lý song song nhưng hiển thị tuần tự cho con người dễ đọc.
 
-### 7.2. Dual Output Mode (LOG_LEVEL)
+### 7.2. Logger Architecture
 
-Hỗ trợ 2 format output thông qua environment variable `LOG_LEVEL`. **Lưu ý:** `LOG_LEVEL` ở đây là **output format** (cách in kết quả), không phải log level (debug/info/warning).
-
-| Mode | Mô tả |
-|------|-------|
-| `human` | Human-readable (default) |
-| `json` | Machine-parseable JSON |
-| `both` | Cả 2 format |
-
-**Về cấu trúc Logger (OOP/Best Practice):** Bắt đầu từ bản v2, để chống xen kẽ log (interleave) trong môi trường async hoàn toàn, chúng ta sử dụng một Custom class `ForceFlushStreamHandler(logging.StreamHandler)` để *force buffer flush* sau mỗi log được push. Code chuẩn mục OOP, thay vì monkey-patch hàm gốc.
+Để chống xen kẽ log (interleave) trong môi trường async, sử dụng `ForceFlushStreamHandler(logging.StreamHandler)` để *force buffer flush* sau mỗi log record. Xem implementation tại `src/utils/logger.py`.
 
 ```python
-# src/utils/logger.py
-import os
-import json
-from enum import Enum
-from datetime import datetime
-
-class OutputMode(Enum):
-    HUMAN = "human"
-    JSON = "json"
-    BOTH = "both"
-
-def get_output_mode() -> OutputMode:
-    """Get output mode với fallback an toàn"""
-    mode = os.environ.get("LOG_LEVEL", "human").lower()
-    try:
-        return OutputMode(mode)
-    except ValueError:
-        return OutputMode.HUMAN  # Fallback nếu value không hợp lệ
-
-OUTPUT_MODE = get_output_mode()
-
-# Note: logging.basicConfig được gọi trong ExecutionContext._setup_logging()
-# Không gọi ở đây để tránh duplicate
-
-def log_result(data: dict, human_msg: str) -> None:
-    """Output theo OUTPUT_MODE setting"""
-    if OUTPUT_MODE in (OutputMode.HUMAN, OutputMode.BOTH):
-        logger.info(human_msg)
-    
-    if OUTPUT_MODE in (OutputMode.JSON, OutputMode.BOTH):
-        # JSON output vẫn dùng print để không bị format của logging
-        print(json.dumps({
-            **data,
-            "trace_id": ctx.trace_id,
-            "timestamp": datetime.now().isoformat(),
-        }))
-
-# Note: logger và ctx được import từ phần còn lại của logger.py
+# src/utils/logger.py - Key components:
+# - ForceFlushStreamHandler: Custom handler force flush sau mỗi log
+# - TraceIdFilter: Filter thêm trace_id vào mỗi log record
+# - ExecutionContext: Singleton chứa trace_id, start_time, reset_timer(), elapsed_seconds
+# - Named logger 'hoyolab' (không dùng root logger, tránh conflict)
+# - log_info(), log_error(), log_print()
 ```
 
-**Ví dụ sử dụng:**
-```python
-log_result(
-    data={"action": "checkin", "game": "gs", "account": "ACC_1", "status": "success", "day": 15},
-    human_msg="  Genshin:    ✓ Điểm danh thành công (Ngày 15)"
-)
-```
-
-**Output theo mode:**
-```bash
-# LOG_LEVEL=human (default)
-20/01/2026 07:50:59 [INFO]   Genshin Impact: ✓ Đã điểm danh trước đó
-
-# LOG_LEVEL=json
-{"action":"checkin","game":"gs","account":"ACC_2","status":"success","trace_id":"a83cd482","timestamp":"2026-01-20T07:50:59.123"}
-```
-
-**GitHub Actions workflow:**
-```yaml
-- name: Run script (JSON logs)
-  env:
-    LOG_LEVEL: json  # hoặc "both" để debug
-    ACC_1: ${{ secrets.ACC_1 }}
-  run: python -m src.main
-```
+**Environment variable:** `DEBUG` — bật DEBUG level logs (mặc định: INFO).
 
 ---
 
@@ -194,60 +130,43 @@ def _sanitize_error_message(error: Exception) -> str:
     """Sanitize error message để không leak sensitive info"""
     error_str = str(error)
     sensitive_patterns = ["cookie", "token", "password", "secret", "key", "auth"]
-    
+
     for pattern in sensitive_patterns:
         if pattern in error_str.lower():
-            return "Request failed (details hidden for security)"
-    
+            return SYSTEM_MESSAGES["ERR_UNKNOWN_SECURE"]
+
     return error_str[:100] + "..." if len(error_str) > 100 else error_str
 
 
 async def safe_api_call(
-    session: aiohttp.ClientSession,
-    url: str,
-    headers: dict,
-    params: dict | None = None,
-    json_data: dict | None = None,
-    method: str = "GET",
-    max_retries: int = MAX_RETRIES,
+    session, url, headers, params=None, json_data=None,
+    method="GET", max_retries=MAX_RETRIES,
 ) -> dict[str, Any]:
     """Pattern xử lý exception với retry cho tất cả API calls"""
-    kwargs = {"headers": headers}
-    if params:
-        kwargs["params"] = params
-    if json_data:
-        kwargs["json"] = json_data
-    
-    last_error = "Unknown error"
-    
+    # ... setup kwargs ...
+
     for attempt in range(max_retries):
         try:
-            async with _get_semaphore():  # Lazy init semaphore
+            # Per-attempt timeout giảm dần (floor: MIN_REQUEST_TIMEOUT)
+            attempt_timeout = aiohttp.ClientTimeout(
+                total=max(REQUEST_TIMEOUT / remaining_attempts, MIN_REQUEST_TIMEOUT),
+                connect=CONNECT_TIMEOUT,
+            )
+
+            async with _get_semaphore():
+                # Anti-detection jitter (0.1-0.3s) bên trong semaphore
+                await asyncio.sleep(random.uniform(0.1, 0.3))
                 async with session.request(method, url, **kwargs) as resp:
-                    if resp.status == 429:  # Rate limited
-                        await asyncio.sleep(RATE_LIMIT_DELAY)
+                    if resp.status in _RETRYABLE_STATUS_CODES:  # 429, 5xx
+                        # Retry with backoff
                         continue
-                    data = await resp.json()
-                    return {"success": True, "data": data}
-        
-        except aiohttp.ClientConnectionError:
-            last_error = "Network connection failed"
-            if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
-                continue
-        
-        except asyncio.TimeoutError:
-            last_error = "Request timed out"
-            if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
-                continue
-        
-        except aiohttp.ContentTypeError:
-            return {"success": False, "error": "invalid_json", "message": "Response not JSON"}
-        
-        except Exception as e:
-            return {"success": False, "error": "unknown", "message": _sanitize_error_message(e)}
-    
+                    return {"success": True, "data": await resp.json()}
+
+        except aiohttp.ClientConnectionError: ...  # retry with exponential backoff
+        except asyncio.TimeoutError: ...            # retry with exponential backoff
+        except aiohttp.ContentTypeError: ...        # no retry
+        except Exception as e: ...                  # sanitize & return
+
     return {"success": False, "error": "max_retries", "message": f"Failed after {max_retries} attempts"}
 ```
 
@@ -268,23 +187,29 @@ Mỗi lần chạy script cần có `trace_id` để dễ debug trong logs:
 import uuid
 import logging
 from datetime import datetime
-from typing import Any
 
-# Configure logging với custom format
+_LOGGER_NAME = "hoyolab"
+
 class TraceIdFilter(logging.Filter):
     """Filter thêm trace_id vào mỗi log record"""
     def __init__(self, trace_id: str):
         super().__init__()
         self.trace_id = trace_id
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         record.trace_id = self.trace_id
         return True
 
+class ForceFlushStreamHandler(logging.StreamHandler):
+    """Handler tự động flush buffer sau mỗi dòng log (Tốt cho CI/CD)"""
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 class ExecutionContext:
     """Singleton chứa context cho 1 lần chạy"""
     _instance = None
-    
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -292,52 +217,45 @@ class ExecutionContext:
             cls._instance.start_time = datetime.now()
             cls._instance._setup_logging()
         return cls._instance
-    
+
     def _setup_logging(self) -> None:
-        """Setup logging với trace_id filter và force flush"""
-        # Tạo custom handler với force flush
-        handler = logging.StreamHandler()
+        """Setup named logger 'hoyolab' (không dùng root logger, tránh conflict)"""
+        handler = ForceFlushStreamHandler()
         handler.setFormatter(logging.Formatter(
             fmt="%(asctime)s [%(levelname)s] %(message)s",
             datefmt="%d/%m/%Y %H:%M:%S"
         ))
-        
-        # Override emit để force flush sau mỗi log
-        original_emit = handler.emit
-        def flush_emit(record):
-            original_emit(record)
-            handler.flush()
-        handler.emit = flush_emit
-        
-        # Cấu hình root logger
-        root_logger = logging.getLogger()
-        root_logger.addHandler(handler)
-        root_logger.addFilter(TraceIdFilter(self.trace_id))
-    
+        named_logger = logging.getLogger(_LOGGER_NAME)
+        named_logger.handlers.clear()
+        named_logger.addHandler(handler)
+        named_logger.addFilter(TraceIdFilter(self.trace_id))
+        named_logger.propagate = False
+
+    def reset_timer(self) -> None:
+        """Reset start_time — gọi khi main() bắt đầu."""
+        self.start_time = datetime.now()
+
     @property
     def elapsed_seconds(self) -> float:
-        """Thời gian đã chạy (giây)"""
         return (datetime.now() - self.start_time).total_seconds()
 
-# Global instance - khởi tạo khi import
+# Global instances
 ctx = ExecutionContext()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(_LOGGER_NAME)
 
 def log_info(account: str, message: str) -> None:
-    """Log level INFO"""
     logger.info(f"[{account}] {message}")
 
 def log_error(account: str, message: str) -> None:
-    """Log level ERROR"""
     logger.error(f"[{account}] {message}")
 
-def log_warning(account: str, message: str) -> None:
-    """Log level WARNING"""
-    logger.warning(f"[{account}] {message}")
-
-def log_debug(account: str, message: str) -> None:
-    """Log level DEBUG - chỉ hiển khi LOG_LEVEL=DEBUG"""
-    logger.debug(f"[{account}] {message}")
+def log_print(message: str = "") -> None:
+    """Thay thế print() — multiline: mỗi dòng log riêng."""
+    if not message:
+        logger.info("")
+        return
+    for line in message.split("\n"):
+        logger.info(line)
 ```
 
 **Output example:**
@@ -351,16 +269,29 @@ def log_debug(account: str, message: str) -> None:
 - Dễ filter logs theo execution run trong GitHub Actions
 - Dễ tính execution time (từ `start_time`)
 
-### 8.7. Decoupled Display Pattern
+### 8.7. Decoupled Display Pattern — `src/utils/display.py`
 
 Khi phát triển luồng mới, tuân thủ nguyên tắc:
-1. Hàm thực thi (API/Service) trả về `dict` hoặc `list`.
-2. Hàm hiển thị (Display) nhận dữ liệu đó và dùng `log_print()` để in ra.
+1. Hàm thực thi (API/Service) trả về TypedDict (xem `src/models/types.py`).
+2. Hàm hiển thị (Display) trong `src/utils/display.py` nhận dữ liệu đó và dùng `log_print()` để in ra.
+
+Các display functions hiện có:
+- `display_checkin(results)` — Hiển thị kết quả check-in cho tất cả accounts
+- `display_cdkeys(cdkeys)` — Hiển thị danh sách CDKeys theo game
+- `display_uids(uids)` — Hiển thị danh sách UIDs theo account/game/region
+- `display_redeem_results(results)` — Hiển thị kết quả redeem theo account/game/region
+- `display_redeem(cdkeys, uids)` — Header redeem (gom CDKeys + UIDs)
 
 ```python
 # Ví dụ pattern chuẩn trong main.py
-results = await run_something_parallel(accounts)
-display_something(results)  # In ra tuần tự
+checkin_results = await run_checkin(session, accounts)
+display_checkin(checkin_results)  # In tuần tự, không xen kẽ
+
+cdkeys, uids = await fetch_app_data(session, accounts)
+display_redeem(cdkeys, uids)
+
+redeem_results = await run_redeem_for_all(session, accounts, cdkeys, uids)
+display_redeem_results(redeem_results)
 ```
 
 ---

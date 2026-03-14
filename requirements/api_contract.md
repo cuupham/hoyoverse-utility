@@ -51,9 +51,9 @@ COMMON_HEADERS = {
 ### 3.2. Origins
 
 > [!NOTE]
-> `ORIGINS` dict được định nghĩa tại `src/config.py`
+> `ORIGINS` dict được định nghĩa tại `src/config.py` (chỉ 2 origins: `hoyolab` và `act_hoyolab`)
 
-### 3.3. Helper Functions (cần implement)
+### 3.3. Helper Functions (đã implement tại `src/utils/helpers.py`)
 
 ```python
 from datetime import datetime
@@ -199,39 +199,36 @@ json_data = {"act_id": game_info.act_id, "lang": RPC_LANGUAGE}
 
 ---
 
-### 5.3. API Fetch CDKeys (Lấy danh sách redeem code)
+### 5.3. API Fetch CDKeys (Lấy danh sách redeem code) — `src/api/redeem_fetch.py`
 
 **Mục đích:** Lấy danh sách redeem code hiện có của mỗi game
 
 > [!IMPORTANT]
 > **CDKeys là PUBLIC** - không phụ thuộc vào account.
-> 
-> → Chỉ cần **1 account đầu tiên** trong danh sách gọi 3 API (cho 3 games) để fetch CDKeys.
-> 
-> → Kết quả này được **cache và dùng chung** cho tất cả accounts còn lại.
-> 
-> → **KHÔNG cần** mỗi account tự fetch riêng (tốn API calls vô ích).
+>
+> → Fetch CDKeys từ **tất cả accounts song song**, chọn kết quả tốt nhất (nhiều codes nhất).
+>
+> → Chiến lược fallback: nếu account đầu bị lỗi, accounts khác vẫn trả về codes.
+>
+> → Kết quả được **dùng chung** cho tất cả accounts khi redeem.
 
 ```
-Flow Fetch CDKeys:
+Flow Fetch CDKeys (with fallback):
 ┌─────────────────────────────────────────────────────────────┐
 │  Accounts: [acc_1, acc_2, acc_3, acc_4]                     │
 │                │                                            │
-│                ▼                                            │
-│  Lấy acc_1 (account đầu tiên)                               │
-│                │                                            │
-│    ┌───────────┼───────────┐                                │
-│    ▼           ▼           ▼                                │
-│  [Genshin]  [StarRail]   [ZZZ]   ← 3 luồng song song        │
-│    │           │           │                                │
-│    └───────────┴───────────┘                                │
+│    ┌───────────┼───────────┼───────────┐                    │
+│    ▼           ▼           ▼           ▼                    │
+│  [acc_1]     [acc_2]     [acc_3]     [acc_4]                │
+│  3 games     3 games     3 games     3 games                │
+│    │           │           │           │                    │
+│    └───────────┴───────────┴───────────┘                    │
 │                │                                            │
 │                ▼                                            │
-│  cdkeys = {                                                 │
-│      "gs": ["CODE1", "CODE2", "CODE3"],                     │
-│      "sr": ["CODE4", "CODE5", "CODE6"],                     │
-│      "zzz": ["CODE7"]                                       │
-│  }                                                          │
+│  Chọn kết quả có nhiều codes nhất                           │
+│                │                                            │
+│                ▼                                            │
+│  cdkeys = { gs: [...], sr: [...], zzz: [...] }              │
 │                │                                            │
 │                ▼                                            │
 │  Dùng chung cho acc_1, acc_2, acc_3, acc_4                  │
@@ -263,7 +260,7 @@ codes = [
 
 ---
 
-### 5.4. API Fetch UID (Lấy UID player)
+### 5.4. API Fetch UID (Lấy UID player) — `src/api/redeem_fetch.py`
 
 **Mục đích:** Lấy UID của player cho từng game/server
 
@@ -296,7 +293,7 @@ if response["retcode"] == 0:
 
 ---
 
-### 5.5. API Exchange CDKey (Nhập redeem code)
+### 5.5. API Exchange CDKey (Nhập redeem code) — `src/api/redeem_exchange.py`
 
 | Game | URL |
 |------|-----|
