@@ -5,19 +5,25 @@ The 'headers' dict passed to safe_api_call contains cookies - do not log it dire
 """
 
 import asyncio
-import aiohttp
+import random  # nosec B311 - used for anti-detection jitter, not cryptography
 from typing import Any
+
+import aiohttp
 
 from src.config import (
     CONNECTOR_LIMIT,
     CONNECTOR_LIMIT_PER_HOST,
     CONNECT_TIMEOUT,
     MAX_RETRIES,
+    MIN_REQUEST_TIMEOUT,
     RATE_LIMIT_DELAY,
     REQUEST_TIMEOUT,
     SEMAPHORE_LIMIT,
     SYSTEM_MESSAGES,
 )
+
+# HTTP status codes that should trigger retry (transient server errors)
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 # Lazy semaphore - tạo khi cần, gắn đúng event loop
 _SEMAPHORE: asyncio.Semaphore | None = None
@@ -35,6 +41,12 @@ def _get_semaphore() -> asyncio.Semaphore:
     if _SEMAPHORE is None:
         _SEMAPHORE = asyncio.Semaphore(SEMAPHORE_LIMIT)
     return _SEMAPHORE
+
+
+def reset_semaphore() -> None:
+    """Reset semaphore global state - dùng cho testing hoặc khi cần reinitialize."""
+    global _SEMAPHORE
+    _SEMAPHORE = None
 
 
 def _sanitize_error_message(error: Exception) -> str:
@@ -104,44 +116,49 @@ async def safe_api_call(
 
     for attempt in range(max_retries):
         try:
-            # Security Enhancement: Add randomized jitter (0.1s - 0.3s)
-            # to avoid simultaneous requests detection
-            import random
-
-            await asyncio.sleep(random.uniform(0.1, 0.3))  # nosec B311
+            # Per-attempt timeout giảm dần, nhưng không thấp hơn MIN_REQUEST_TIMEOUT
+            remaining_attempts = max_retries - attempt
+            attempt_timeout = aiohttp.ClientTimeout(
+                total=max(REQUEST_TIMEOUT / remaining_attempts, MIN_REQUEST_TIMEOUT),
+                connect=CONNECT_TIMEOUT,
+            )
+            kwargs["timeout"] = attempt_timeout
 
             async with _get_semaphore():
+                # Anti-detection jitter (0.1s - 0.3s) bên trong semaphore
+                # để không giữ slot khi chưa cần, và tránh request đồng thời
+                await asyncio.sleep(random.uniform(0.1, 0.3))  # nosec B311
                 async with session.request(method, url, **kwargs) as resp:
-                    # Handle rate limiting
-                    if resp.status == 429:
-                        await asyncio.sleep(RATE_LIMIT_DELAY)
-                        continue
+                    # Retry cho rate limit (429) và server errors (5xx)
+                    if resp.status in _RETRYABLE_STATUS_CODES:
+                        delay = RATE_LIMIT_DELAY if resp.status == 429 else 2**attempt
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(delay)
+                            continue
+                        last_error = f"HTTP {resp.status} after {max_retries} attempts"
+                        return {"success": False, "error": "http_error", "message": last_error}
 
                     data = await resp.json()
                     return {"success": True, "data": data}
 
-        except aiohttp.ClientConnectionError as e:
+        except aiohttp.ClientConnectionError:
             last_error = SYSTEM_MESSAGES["ERR_NETWORK"]
-            # Retry for network errors
             if attempt < max_retries - 1:
-                await asyncio.sleep(2**attempt)  # Exponential backoff
+                await asyncio.sleep(2**attempt)
                 continue
             return {"success": False, "error": "network", "message": last_error}
 
         except asyncio.TimeoutError:
             last_error = SYSTEM_MESSAGES["ERR_TIMEOUT"]
-            # Retry for timeout
             if attempt < max_retries - 1:
                 await asyncio.sleep(2**attempt)
                 continue
             return {"success": False, "error": "timeout", "message": last_error}
 
         except aiohttp.ContentTypeError:
-            # Don't retry for invalid JSON - likely server issue
             return {"success": False, "error": "invalid_json", "message": SYSTEM_MESSAGES["ERR_INVALID_JSON"]}
 
         except Exception as e:
-            # Sanitize error message to prevent info leak
             last_error = _sanitize_error_message(e)
             return {"success": False, "error": "unknown", "message": last_error}
 

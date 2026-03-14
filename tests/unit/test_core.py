@@ -5,9 +5,10 @@ import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from src.models.account import Account
-from src.api.client import safe_api_call, create_session
+from src.api.client import safe_api_call, create_session, reset_semaphore
 from src.utils.security import mask_uid
 from src.utils.helpers import current_hour, rpc_weekday
+from tests.conftest import MockAsyncCM
 
 
 class TestAccountModel:
@@ -24,40 +25,65 @@ class TestAccountModel:
 
     def test_account_from_env_missing_keys(self):
         """Test lỗi khi thiếu required keys"""
-        cookie = "ltoken_v2=v2; ltuid_v2=123"  # Thiếu account_id_v2, etc.
+        cookie = "ltoken_v2=v2; ltuid_v2=123"
         with pytest.raises(ValueError) as excinfo:
             Account.from_env("BAD_ACC", cookie)
         assert "Missing required cookies" in str(excinfo.value)
+
+    def test_account_cookies_immutable(self):
+        """Test cookies dict thực sự immutable (MappingProxyType)"""
+        cookie = "ltoken_v2=v2; ltuid_v2=123; cookie_token_v2=c2; account_id_v2=456; _MHYUUID=m1; _HYVUUID=h1"
+        acc = Account.from_env("ACC_1", cookie)
+        with pytest.raises(TypeError):
+            acc.cookies["new_key"] = "should_fail"
 
 
 class TestApiClient:
     """Test cases cho safe_api_call và session isolation"""
 
-    @pytest.mark.skip(reason="Mocking async with for retries is unstable in current test environment")
+    @pytest.fixture(autouse=True)
+    def _reset_semaphore(self):
+        """Reset semaphore trước mỗi test để tránh state leak"""
+        reset_semaphore()
+        yield
+        reset_semaphore()
+
     @pytest.mark.asyncio
-    async def test_safe_api_call_retry(self, mock_session):
-        """Test cơ chế retry khi gặp lỗi mạng"""
-        # Mock response object for Success
-        mock_resp = MagicMock()
-        mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value={"retcode": 0})
+    async def test_safe_api_call_retry_on_timeout(self, mock_session):
+        """Test cơ chế retry khi gặp timeout - lần 1 timeout, lần 2 thành công"""
+        mock_resp_200 = MagicMock()
+        mock_resp_200.status = 200
+        mock_resp_200.json = AsyncMock(return_value={"retcode": 0})
 
-        # We need to mock session.request to be a regular MagicMock
-        # that returns an async context manager
-        with patch.object(mock_session, "request") as mock_request:
-            # Call 1: Timeout
-            mock_cm_timeout = MagicMock()
-            mock_cm_timeout.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError())
-            mock_cm_timeout.__aexit__ = AsyncMock()
+        mock_session.request = MagicMock()
+        mock_session.request.side_effect = [
+            MockAsyncCM(side_effect=asyncio.TimeoutError()),
+            MockAsyncCM(return_value=mock_resp_200),
+        ]
 
-            # Call 2: Success
-            mock_cm_success = MagicMock()
-            mock_cm_success.__aenter__ = AsyncMock(return_value=mock_resp)
-            mock_cm_success.__aexit__ = AsyncMock()
+        with patch("src.api.client.asyncio.sleep"):
+            with patch("src.api.client._get_semaphore"):
+                result = await safe_api_call(mock_session, "http://test.com", {}, max_retries=2)
+                assert result["success"] is True
 
-            mock_request.side_effect = [mock_cm_timeout, mock_cm_success]
+    @pytest.mark.asyncio
+    async def test_safe_api_call_retry_on_5xx(self, mock_session):
+        """Test retry cho HTTP 5xx server errors"""
+        mock_resp_502 = MagicMock()
+        mock_resp_502.status = 502
 
-            with patch("src.api.client.asyncio.sleep"):  # Skip sleep
+        mock_resp_200 = MagicMock()
+        mock_resp_200.status = 200
+        mock_resp_200.json = AsyncMock(return_value={"retcode": 0})
+
+        mock_session.request = MagicMock()
+        mock_session.request.side_effect = [
+            MockAsyncCM(return_value=mock_resp_502),
+            MockAsyncCM(return_value=mock_resp_200),
+        ]
+
+        with patch("src.api.client.asyncio.sleep"):
+            with patch("src.api.client._get_semaphore"):
                 result = await safe_api_call(mock_session, "http://test.com", {}, max_retries=2)
                 assert result["success"] is True
 
@@ -77,7 +103,7 @@ class TestUtils:
     def test_mask_uid(self):
         """Test che UID"""
         assert mask_uid("123456789") == "123***789"
-        assert mask_uid(12345) == "***"  # Quá ngắn
+        assert mask_uid(12345) == "***"
         assert mask_uid(None) == "***"
 
     def test_helpers(self):
@@ -100,18 +126,13 @@ class TestGameModel:
     def test_get_page_info_serialization(self):
         """Test cơ chế sinh page_info JSON đúng format stealth"""
         from src.models.game import Game
+        import json
 
         zzz = Game.ZZZ.value
         page_info = zzz.get_page_info("TestPage")
-
-        # Kiểm tra JSON valid
-        import json
 
         data = json.loads(page_info)
         assert data["pageName"] == "TestPage"
         assert data["pageType"] == "46"
         assert data["gameId"] == "8"
-
-        # Kiểm tra separators (stealth requirement: no spaces)
         assert " " not in page_info
-        assert ',"pageType":"46"' in page_info

@@ -58,10 +58,8 @@ async def debug_get_checkin_info():
 
     for account in accounts:
         print(f"\n\n{'#'*30} ACCOUNT: {account.name} {'#'*30}")
-        # In ra ID và đoạn cuối cookie token để check xem có bị trùng lặp object không
         print(f"Account ID: {account.cookies.get('account_id_v2')}")
         print(f"Cookie Length: {len(account.cookie_str)}")
-        print(f"Cookie (last 30 chars): ...{account.cookie_str[-30:]}")
 
         async with aiohttp.ClientSession() as session:
             # Check cookie and email mask
