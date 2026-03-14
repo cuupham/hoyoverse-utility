@@ -1,8 +1,14 @@
 """Game models - Game Enum và Region configurations"""
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.models.account import Account
 
 from src.config import PAGE_NAME_HOME_GAME
 from src.constants import JSON_SEPARATORS
@@ -42,20 +48,22 @@ class GameInfo:
             return {"act_id": self.act_id, "lang": RPC_LANGUAGE}
         return {"act_id": self.act_id}
 
-    def get_sign_headers(self, account, page_info_name: str) -> dict:
-        """Trả về Dictionary header mặc định."""
+    def get_sign_headers(self, account: "Account", game: "Game", page_info_name: str) -> dict:
+        """Trả về Dictionary header mặc định.
+
+        Args:
+            account: Account object chứa cookie và device id.
+            game: Game enum (truyền trực tiếp, không cần reverse lookup).
+            page_info_name: Tên page cho x-rpc-page_name.
+        """
         from src.utils.helpers import build_rpc_headers
 
-        # Lấy được class Game Enum chứ không phải model GameInfo vì Utils build_rpc_headers expect Enum Game.
-        from src.models.game import Game
-
-        matched_game = next(g for g in Game if g.value == self)
-
         headers = build_rpc_headers(
-            account, "act_hoyolab", self.get_page_info(page_info_name), page_info_name, game=matched_game
+            account, "act_hoyolab", self.get_page_info(page_info_name), page_info_name, game=game
         )
         if not self.signgame:
             # Genshin Impact specific sign headers
+            # Note: API chấp nhận cả _MHYUUID lẫn _HYVUUID, giữ _MHYUUID cho consistency
             headers["content-type"] = "application/json;charset=UTF-8"
             headers["x-rpc-app_version"] = ""
             headers["x-rpc-device_name"] = ""

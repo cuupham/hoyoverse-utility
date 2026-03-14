@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch
 
 from src.models.game import Game
-from src.api.redeem import fetch_cdkeys, fetch_all_cdkeys
+from src.api.redeem_fetch import fetch_cdkeys, fetch_all_cdkeys
 
 
 class TestFetchCdkeys:
@@ -13,7 +13,6 @@ class TestFetchCdkeys:
     @pytest.mark.asyncio
     async def test_fetch_cdkeys_genshin_success(self, mock_session, mock_account):
         """Test fetch CDKeys cho Genshin thành công"""
-        # safe_api_call returns {"success": True, "data": <api_response>}
         mock_api_response = {
             "success": True,
             "data": {
@@ -33,12 +32,11 @@ class TestFetchCdkeys:
             },
         }
 
-        with patch("src.api.redeem.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.GENSHIN)
 
-            # Verify codes được trích xuất đúng
             assert isinstance(result, list)
 
     @pytest.mark.asyncio
@@ -46,7 +44,7 @@ class TestFetchCdkeys:
         """Test fetch CDKeys khi API trả về rỗng"""
         mock_api_response = {"success": True, "data": {"retcode": 0, "data": {"modules": []}}}
 
-        with patch("src.api.redeem.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.STAR_RAIL)
@@ -56,8 +54,7 @@ class TestFetchCdkeys:
     @pytest.mark.asyncio
     async def test_fetch_cdkeys_api_error(self, mock_session, mock_account):
         """Test fetch CDKeys khi API lỗi"""
-        with patch("src.api.redeem.safe_api_call") as mock_api:
-            # API failed - returns {"success": False, ...}
+        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
             mock_api.return_value = {"success": False, "error": "network", "message": "Connection failed"}
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.ZZZ)
@@ -69,7 +66,7 @@ class TestFetchCdkeys:
         """Test fetch CDKeys khi response structure không đúng"""
         mock_api_response = {"success": True, "data": {"retcode": 0, "data": {"unexpected_field": "value"}}}
 
-        with patch("src.api.redeem.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.GENSHIN)
@@ -92,7 +89,7 @@ class TestFetchAllCdkeys:
             else:
                 return []
 
-        with patch("src.api.redeem.fetch_cdkeys", side_effect=mock_fetch_cdkeys):
+        with patch("src.api.redeem_fetch.fetch_cdkeys", side_effect=mock_fetch_cdkeys):
             result = await fetch_all_cdkeys(mock_session, mock_account)
 
             assert Game.GENSHIN in result
@@ -106,7 +103,7 @@ class TestFetchAllCdkeys:
     @pytest.mark.asyncio
     async def test_fetch_all_games_all_empty(self, mock_session, mock_account):
         """Test khi tất cả games đều không có codes"""
-        with patch("src.api.redeem.fetch_cdkeys", return_value=[]):
+        with patch("src.api.redeem_fetch.fetch_cdkeys", return_value=[]):
             result = await fetch_all_cdkeys(mock_session, mock_account)
 
             assert all(len(codes) == 0 for codes in result.values())
@@ -120,12 +117,11 @@ class TestFetchAllCdkeys:
             nonlocal call_count
             call_count += 1
             if game == Game.STAR_RAIL:
-                return []  # Simulating error/empty
+                return []
             return ["CODE1"]
 
-        with patch("src.api.redeem.fetch_cdkeys", side_effect=mock_fetch_with_error):
+        with patch("src.api.redeem_fetch.fetch_cdkeys", side_effect=mock_fetch_with_error):
             result = await fetch_all_cdkeys(mock_session, mock_account)
 
-            # Should still return results for all games
             assert len(result) == 3
             assert call_count == 3

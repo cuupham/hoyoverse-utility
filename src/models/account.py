@@ -1,6 +1,8 @@
 """Account model - Đại diện cho một tài khoản HoYoLab"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Mapping
 
 # Required keys để đảm bảo cookie hoạt động
 REQUIRED_COOKIE_KEYS = ["_MHYUUID", "_HYVUUID", "cookie_token_v2", "account_id_v2"]
@@ -8,34 +10,23 @@ REQUIRED_COOKIE_KEYS = ["_MHYUUID", "_HYVUUID", "cookie_token_v2", "account_id_v
 
 @dataclass(frozen=True)
 class Account:
-    """
-    Account dataclass - immutable, thread-safe
+    """Account dataclass - truly immutable, thread-safe.
 
-    Attributes:
-        name: Tên account (ACC_1, ACC_2, ...)
-        cookie_str: Raw cookie string cho HTTP requests
-        cookies: Parsed dict để truy xuất values
+    cookies sử dụng MappingProxyType để đảm bảo immutability hoàn toàn,
+    vì frozen=True chỉ ngăn reassign attribute, không ngăn mutate dict.
     """
 
     name: str
     cookie_str: str
-    cookies: dict[str, str]
+    cookies: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
 
     @classmethod
     def from_env(cls, name: str, cookie_str: str) -> "Account":
-        """Parse cookie string thành Account object
-
-        Args:
-            name: Tên account (ACC_1, ACC_2, ...)
-            cookie_str: Cookie string từ environment variable
-
-        Returns:
-            Account object
+        """Parse cookie string thành Account object.
 
         Raises:
-            ValueError: Nếu cookie rỗng hoặc thiếu required keys
+            ValueError: Nếu cookie rỗng hoặc thiếu required keys.
         """
-        # Kiểm tra cookie rỗng
         if not cookie_str or not cookie_str.strip():
             raise ValueError(f"{name}: Cookie string is empty")
 
@@ -52,7 +43,7 @@ class Account:
         if missing:
             raise ValueError(f"{name}: Missing required cookies: {missing}")
 
-        return cls(name=name, cookie_str=cookie_str, cookies=cookies)
+        return cls(name=name, cookie_str=cookie_str, cookies=MappingProxyType(cookies))
 
     @property
     def mhy_uuid(self) -> str:

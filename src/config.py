@@ -61,29 +61,23 @@ URLS = {
 SEMAPHORE_LIMIT = 20  # Max concurrent requests
 REDEEM_DELAY = 5  # Seconds between redeem codes
 REQUEST_TIMEOUT = 30  # Total request timeout
+MIN_REQUEST_TIMEOUT = 15  # Floor timeout per attempt (prevent premature timeouts)
 CONNECT_TIMEOUT = 10  # Connection timeout
 MAX_RETRIES = 3  # Retry attempts
 RATE_LIMIT_DELAY = 5  # Seconds to wait when rate limited (429)
 MIN_UID_LENGTH = 6  # UIDs shorter than this are masked entirely
-DEFAULT_TIMEZONE = "Asia/Saigon"  # Khớp với curl của bạn
+DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecated)
 
 # Connection pool (client session)
 CONNECTOR_LIMIT = 30
 CONNECTOR_LIMIT_PER_HOST = 10
 
-# Logger: default output mode khi LOG_LEVEL không set hoặc không hợp lệ
-DEFAULT_LOG_LEVEL = "human"
-
 # Display: độ rộng dòng header/footer (số ký tự "=")
 HEADER_WIDTH = 50
-
-# Display: từ khóa nhận diện "đã điểm danh trước đó" trong message
-CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 
 # ==================== RPC HEADER VALUES (single source - dùng trong checkin, helpers, API) ====================
 RPC_LANGUAGE = "en-us"
 RPC_CLIENT_TYPE = "4"
-RPC_PLATFORM = "4"
 RPC_SYS_VERSION = "Windows NT 10.0"
 RPC_SHOW_TRANSLATED = "false"
 # Page names cho x-rpc-page_name / get_page_info
@@ -100,14 +94,8 @@ COOKIE_CHECK_PAGE_INFO = json.dumps(
 
 
 # Cookie check API (user_brief_info) - x-rpc-app_version
-# Lấy từ env COOKIE_CHECK_APP_VERSION; nếu không set thì gửi rỗng (API vẫn chấp nhận).
-# Khi có phương pháp lấy version (vd iTunes API, roadmap) có thể set env hoặc cập nhật logic ở đây.
-def _get_cookie_check_app_version() -> str:
-    v = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
-    return v if v else ""
-
-
-COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()
+# Lấy từ env; rỗng nếu không set (API vẫn chấp nhận).
+COOKIE_CHECK_APP_VERSION = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
 
 # ==================== REDEEM MESSAGES (i18n ready) ====================
 REDEEM_MESSAGES = {
@@ -116,7 +104,7 @@ REDEEM_MESSAGES = {
     -2003: "Code đã sử dụng",
     -2011: "Chưa đủ rank",
     -2016: "Code đã hết hạn",
-    -2017: "Đã sử dụng hoặc không đủ điều kiện (Level/Rank)",
+    -2017: "Đã sử dụng",
 }
 
 # Message hiển thị khi skip code đã biết expired/invalid từ region trước (single source cho redeem + display)
@@ -147,6 +135,14 @@ SYSTEM_MESSAGES = {
     "SYSTEM_NO_CODES": "Không có codes",
     "SYSTEM_CODES_FOUND": "codes",
     "SYSTEM_NO_UIDS": "Không có UID nào",
+    # Display section headers
+    "SECTION_CHECKIN": "--- CHECK-IN ---",
+    "SECTION_REDEEM": "--- REDEEM CODE ---",
+    "LABEL_CDKEYS": "CDKeys:",
+    "LABEL_UIDS": "UIDs:",
+    # Checkin status (short display)
+    "CHECKIN_ALREADY_SHORT": "✓ Đã điểm danh",
+    "CHECKIN_NO_CHARACTER": "— Chưa tạo nhân vật",
     "ERR_NETWORK": "Network connection failed",
     "ERR_TIMEOUT": "Request timed out",
     "ERR_INVALID_JSON": "Response not JSON",
