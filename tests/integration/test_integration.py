@@ -30,25 +30,23 @@ class TestIntegrationFlow:
         """Verify that checkin and fetch_app_data (for redeem) run in parallel in the main flow"""
         valid_accs = [mock_account]
 
-        # Patch where they are USED (within main_module)
-        with patch("src.main.run_checkin", new_callable=AsyncMock) as mock_checkin:
+        with (
+            patch("src.main.run_checkin", new_callable=AsyncMock) as mock_checkin,
+            patch("src.main.fetch_app_data", new_callable=AsyncMock) as mock_fetch,
+            patch("src.main.display_checkin"),
+            patch("src.main.display_redeem"),
+        ):
             mock_checkin.return_value = {"acc": "res"}
-            with patch("src.main.fetch_app_data", new_callable=AsyncMock) as mock_fetch:
-                mock_fetch.return_value = ({}, {})
+            mock_fetch.return_value = ({}, {})
 
-                with patch("src.main.display_checkin"):
-                    with patch("src.main.display_redeem"):
-                        # Now we test the integration of gather in a helper or similar
-                        # but more importantly we test that main uses them.
-                        # For this specific test, let's just verify they are awaited correctly
-                        checkin_task = main_module.run_checkin(mock_session, valid_accs)
-                        app_data_task = main_module.fetch_app_data(mock_session, valid_accs)
+            checkin_task = main_module.run_checkin(mock_session, valid_accs)
+            app_data_task = main_module.fetch_app_data(mock_session, valid_accs)
 
-                        res = await asyncio.gather(checkin_task, app_data_task)
+            res = await asyncio.gather(checkin_task, app_data_task)
 
-                        assert len(res) == 2
-                        assert mock_checkin.called
-                        assert mock_fetch.called
+            assert len(res) == 2
+            assert mock_checkin.called
+            assert mock_fetch.called
 
     @pytest.mark.asyncio
     @patch("src.main.create_session")
@@ -82,17 +80,17 @@ class TestIntegrationFlow:
         mock_fetch_data.return_value = ({}, {})
         mock_run_redeem.return_value = {}
 
-        with patch("src.main.display_checkin"):
-            with patch("src.main.display_redeem"):
-                # Run main() but catch SystemExit
-                try:
-                    await main_module.main()
-                except SystemExit:
-                    pass
+        with (
+            patch("src.main.display_checkin"),
+            patch("src.main.display_redeem"),
+            patch("src.main.display_redeem_results"),
+        ):
+            try:
+                await main_module.main()
+            except SystemExit:
+                pass
 
-                # Verify key sequence
-                mock_get_env.assert_called_once()
-                mock_validate.assert_called_once()
-                mock_run_checkin.assert_called_once()
-                mock_fetch_data.assert_called_once()
-                mock_run_redeem.assert_called_once()
+            mock_get_env.assert_called_once()
+            mock_validate.assert_called_once()
+            mock_run_checkin.assert_called_once()
+            mock_fetch_data.assert_called_once()

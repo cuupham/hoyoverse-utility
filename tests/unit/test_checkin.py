@@ -79,21 +79,18 @@ class TestDoCheckin:
     @pytest.mark.asyncio
     async def test_do_checkin_success(self, mock_session, mock_account, mock_checkin_sign_success):
         """Test điểm danh thành công"""
-        # mock_checkin_info_not_signed format correct for safe_api_call mock
-        not_signed_processed = {"is_sign": False, "total_sign_day": 10, "error": None}
-        signed_processed = {"is_sign": True, "total_sign_day": 11, "error": None}
+        not_signed = {"is_sign": False, "total_sign_day": 10, "error": None}
 
-        with patch("src.api.checkin.get_checkin_info") as mock_get_info:
-            mock_get_info.side_effect = [not_signed_processed, signed_processed]
+        with (
+            patch("src.api.checkin.get_checkin_info", return_value=not_signed) as mock_get_info,
+            patch("src.api.checkin.safe_api_call", return_value=mock_checkin_sign_success),
+        ):
+            result = await do_checkin(mock_session, mock_account, Game.GENSHIN)
 
-            with patch("src.api.checkin.safe_api_call") as mock_api:
-                mock_api.return_value = mock_checkin_sign_success
-
-                result = await do_checkin(mock_session, mock_account, Game.GENSHIN)
-
-                assert result["success"] is True
-                assert result["day"] == 11
-                assert "thành công" in result["message"].lower()
+            mock_get_info.assert_called_once()  # chỉ gọi 1 lần, increment local
+            assert result["success"] is True
+            assert result["day"] == 11  # 10 + 1 (local increment)
+            assert "thành công" in result["message"].lower()
 
     @pytest.mark.asyncio
     async def test_do_checkin_already_signed(self, mock_session, mock_account):

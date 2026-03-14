@@ -15,25 +15,39 @@ jobs:
   core_flow:
     runs-on: ubuntu-latest
     environment: live
-    timeout-minutes: 30  # Timeout sau 30 phút
-    
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-      
+
       - name: Set up Python with pip cache
         uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
-          
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
-      - name: Run script
+
+      - name: Inject ACC secrets into env
         env:
-          ACC_1: ${{ secrets.ACC_1 }}
-          ACC_2: ${{ secrets.ACC_2 }}
-          ACC_3: ${{ secrets.ACC_3 }}
-          ACC_4: ${{ secrets.ACC_4 }}
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          # Extract ACC_* keys from secrets JSON and export as env vars
+          # Uses heredoc syntax to safely handle cookies containing = or newlines
+          python3 -c "
+          import json, os, uuid
+          secrets = json.loads(os.environ['ALL_SECRETS'])
+          env_file = os.environ['GITHUB_ENV']
+          # Filter: only ACC_* keys (exclude GITHUB_TOKEN and other system secrets)
+          acc_secrets = {k: v for k, v in secrets.items() if k.startswith('ACC_') and v.strip()}
+          with open(env_file, 'a') as f:
+              for key, value in sorted(acc_secrets.items()):
+                  # Heredoc syntax prevents injection via = or newline in values
+                  delimiter = f'ghadelim_{uuid.uuid4().hex[:8]}'
+                  f.write(f'{key}<<{delimiter}\n{value}\n{delimiter}\n')
+          "
+
+      - name: Run script
         run: python -m src.main

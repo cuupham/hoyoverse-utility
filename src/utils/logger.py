@@ -1,32 +1,12 @@
 """Logger utilities - Structured logging với trace_id"""
 
-import json
 import logging
 import os
 import uuid
 from datetime import datetime
-from enum import Enum
 
-
-# ==================== OUTPUT MODE ====================
-class OutputMode(Enum):
-    HUMAN = "human"
-    JSON = "json"
-    BOTH = "both"
-
-
-def get_output_mode() -> OutputMode:
-    """Lấy output mode từ LOG_LEVEL; fallback từ config nếu không set hoặc không hợp lệ."""
-    from src.config import DEFAULT_LOG_LEVEL
-
-    mode = (os.environ.get("LOG_LEVEL") or DEFAULT_LOG_LEVEL).lower()
-    try:
-        return OutputMode(mode)
-    except ValueError:
-        return OutputMode.HUMAN
-
-
-OUTPUT_MODE = get_output_mode()
+# Named logger — không can thiệp root logger, tránh conflict với test/library
+_LOGGER_NAME = "hoyolab"
 
 
 # ==================== TRACE ID FILTER ====================
@@ -65,24 +45,32 @@ class ExecutionContext:
         return cls._instance
 
     def _setup_logging(self) -> None:
-        """Setup logging với trace_id filter và force flush
+        """Setup named logger với trace_id filter và force flush.
 
-        Dùng ForceFlushStreamHandler để đảm bảo mỗi log được flush ngay,
-        tránh interleave khi có nhiều async tasks log cùng lúc.
+        Dùng named logger 'hoyolab' thay vì root logger để:
+        - Tránh conflict với third-party libraries
+        - Không clear handlers của test frameworks
+        - Isolation tốt hơn khi testing
         """
-        # Tạo custom handler với force flush
+        log_level = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
+
         handler = ForceFlushStreamHandler()
-        handler.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
+        handler.setLevel(log_level)
         handler.setFormatter(
             logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%d/%m/%Y %H:%M:%S")
         )
 
-        # Cấu hình root logger
-        root_logger = logging.getLogger()
-        root_logger.setLevel(logging.DEBUG if os.environ.get("DEBUG") else logging.INFO)
-        root_logger.handlers.clear()  # Xóa default handlers
-        root_logger.addHandler(handler)
-        root_logger.addFilter(TraceIdFilter(self.trace_id))
+        named_logger = logging.getLogger(_LOGGER_NAME)
+        named_logger.setLevel(log_level)
+        named_logger.handlers.clear()
+        named_logger.addHandler(handler)
+        named_logger.addFilter(TraceIdFilter(self.trace_id))
+        # Prevent propagation to root logger (avoid duplicate logs)
+        named_logger.propagate = False
+
+    def reset_timer(self) -> None:
+        """Reset start_time về thời điểm hiện tại — gọi khi main() bắt đầu."""
+        self.start_time = datetime.now()
 
     @property
     def elapsed_seconds(self) -> float:
@@ -92,64 +80,30 @@ class ExecutionContext:
 
 # ==================== GLOBAL INSTANCES ====================
 ctx = ExecutionContext()
-logger = logging.getLogger()  # Root logger - đã có TraceIdFilter
+logger = logging.getLogger(_LOGGER_NAME)
 
 
 # ==================== LOG FUNCTIONS ====================
 def log_info(account: str, message: str) -> None:
-    """Log level INFO"""
+    """Log level INFO với prefix account"""
     logger.info(f"[{account}] {message}")
 
 
 def log_error(account: str, message: str) -> None:
-    """Log level ERROR"""
+    """Log level ERROR với prefix account"""
     logger.error(f"[{account}] {message}")
 
 
-def log_warning(account: str, message: str) -> None:
-    """Log level WARNING"""
-    logger.warning(f"[{account}] {message}")
-
-
-def log_debug(account: str, message: str) -> None:
-    """Log level DEBUG"""
-    logger.debug(f"[{account}] {message}")
-
-
-def log_result(data: dict, human_msg: str) -> None:
-    """Output theo OUTPUT_MODE setting"""
-    if OUTPUT_MODE in (OutputMode.HUMAN, OutputMode.BOTH):
-        logger.info(human_msg)
-
-    if OUTPUT_MODE in (OutputMode.JSON, OutputMode.BOTH):
-        print(
-            json.dumps(
-                {
-                    **data,
-                    "trace_id": ctx.trace_id,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            ),
-            flush=True,
-        )
-
-
 def log_print(message: str = "") -> None:
-    """Thay thế print() để đảm bảo output ordering nhất quán
+    """Thay thế print() để đảm bảo output ordering nhất quán.
 
     Trong CI environments (GitHub Actions), stdout/stderr có thể bị
     buffer khác nhau. Dùng logger.info thay vì print để đảm bảo
-    thứ tự output đúng.
-
-    Xử lý multiline: Mỗi dòng được log riêng để có prefix đầy đủ.
+    thứ tự output đúng. Multiline: mỗi dòng được log riêng.
     """
     if not message:
-        # Empty line
         logger.info("")
         return
 
-    # Split by newline và log từng dòng riêng
-    # Điều này đảm bảo mỗi dòng có prefix [trace_id][INFO]
-    lines = message.split("\n")
-    for line in lines:
+    for line in message.split("\n"):
         logger.info(line)

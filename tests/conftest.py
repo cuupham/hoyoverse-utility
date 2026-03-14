@@ -7,6 +7,49 @@ from typing import Any
 from src.models.account import Account
 from src.models.game import Game
 
+# ==================== MARKER EXCLUSION ====================
+# Markers bị loại khỏi default test run (pytest không có -m flag)
+# Muốn chạy riêng: pytest -m live
+# Thêm/bớt marker ở đây khi cần
+EXCLUDED_MARKERS = ["live"]
+
+
+def pytest_configure(config):
+    """Register custom markers"""
+    for marker in EXCLUDED_MARKERS:
+        config.addinivalue_line("markers", f"{marker}: Excluded from default run. Chạy: pytest -m {marker}")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Tự động skip các tests có marker trong EXCLUDED_MARKERS khi không chỉ định -m"""
+    if config.getoption("-m"):
+        return  # User đã chỉ định -m, không can thiệp
+
+    skip_expr = " or ".join(EXCLUDED_MARKERS)
+    for item in items:
+        if any(item.get_closest_marker(m) for m in EXCLUDED_MARKERS):
+            item.add_marker(pytest.mark.skip(reason=f"Excluded by default (markers: {skip_expr}). Chạy: pytest -m <marker>"))
+
+
+# ==================== MOCK HELPERS ====================
+class MockAsyncCM:
+    """Mock async context manager cho session.request() trong tests.
+
+    Dùng thay vì duplicate class trong mỗi test file.
+    """
+
+    def __init__(self, return_value=None, side_effect=None):
+        self.return_value = return_value
+        self.side_effect = side_effect
+
+    async def __aenter__(self):
+        if self.side_effect:
+            raise self.side_effect
+        return self.return_value
+
+    async def __aexit__(self, *args):
+        pass
+
 
 # ==================== MOCK ACCOUNTS ====================
 @pytest.fixture
@@ -194,12 +237,12 @@ def mock_redeem_already_claimed() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_redeem_expired() -> dict[str, Any]:
-    """Mock response - code hết hạn"""
+    """Mock response - code không tồn tại (retcode -2001 = SKIP_GLOBALLY)"""
     return {
         "success": True,
         "data": {
             "retcode": -2001,
-            "message": "Redemption code has expired",
+            "message": "Redemption code does not exist",
             "data": None,
         },
     }
@@ -207,7 +250,7 @@ def mock_redeem_expired() -> dict[str, Any]:
 
 @pytest.fixture
 def mock_redeem_invalid() -> dict[str, Any]:
-    """Mock response - code không hợp lệ"""
+    """Mock response - code đã sử dụng (retcode -2003)"""
     return {
         "success": True,
         "data": {
@@ -219,13 +262,13 @@ def mock_redeem_invalid() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_cooldown() -> dict[str, Any]:
-    """Mock response - cooldown quá nhanh"""
+def mock_redeem_code_expired() -> dict[str, Any]:
+    """Mock response - code đã hết hạn (retcode -2016 = SKIP_GLOBALLY)"""
     return {
         "success": True,
         "data": {
             "retcode": -2016,
-            "message": "Redemption in cooldown",
+            "message": "Redemption code has expired",
             "data": None,
         },
     }
