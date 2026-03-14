@@ -144,39 +144,53 @@ Game Genshin:
 hoyoverse-utility/
 ├── .github/
 │   └── workflows/
-│       └── hoyo-flow.yml       # GitHub Actions workflow
+│       ├── hoyo-flow.yml       # GitHub Actions workflow (daily run)
+│       └── test.yml            # CI: chạy tests + coverage trên mỗi push/PR
 ├── src/
 │   ├── __init__.py
-│   ├── main.py                 # Entry point
-│   ├── config.py               # Cấu hình tập trung (URLs, ORIGINS, RPC_*, REDEEM_*, HEADER_WIDTH, settings)
+│   ├── main.py                 # Entry point - orchestration flow
+│   ├── config.py               # Cấu hình tập trung (URLs, ORIGINS, RPC_*, SYSTEM_MESSAGES, settings)
 │   ├── constants.py            # Giá trị không phụ thuộc module khác (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
 │   ├── api/
 │   │   ├── __init__.py
-│   │   ├── client.py           # HTTP client wrapper (retry, semaphore)
-│   │   ├── checkin.py          # Check-in APIs
-│   │   └── redeem.py           # Redeem code APIs
+│   │   ├── client.py           # HTTP client wrapper (retry, semaphore, anti-detection)
+│   │   ├── checkin.py          # Check-in APIs (check_cookie, get_checkin_info, do_checkin)
+│   │   ├── redeem_fetch.py     # Fetch CDKeys & UIDs (read-only APIs)
+│   │   └── redeem_exchange.py  # Exchange redeem codes (write APIs, delay 5s)
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── account.py          # Account model
-│   │   └── game.py             # Game enum, GameInfo, REGIONS
+│   │   ├── account.py          # Account model (immutable dataclass)
+│   │   ├── game.py             # Game enum, GameInfo, REGIONS mapping
+│   │   └── types.py            # TypedDict definitions (ApiResult, CheckinResult, RedeemResult, ...)
 │   └── utils/
 │       ├── __init__.py
-│       ├── headers.py          # Dynamic User-Agent headers
+│       ├── display.py          # UI formatting & display logic (tables, reports)
+│       ├── headers.py          # Dynamic User-Agent headers (fake-useragent)
 │       ├── helpers.py          # Helper functions (build_rpc_headers, current_hour, ...)
-│       ├── logger.py           # Logging utilities (trace_id, log_print)
+│       ├── logger.py           # Logging utilities (trace_id, ForceFlushStreamHandler, log_print)
 │       └── security.py         # Mask sensitive data (mask_uid)
-├── tests/                      # Unit tests & Mocks
-│   ├── conftest.py
-│   ├── test_checkin.py
-│   ├── test_redeem.py
-│   ├── test_core.py
-│   ├── test_fetch_cdkeys.py
-│   └── cookies.ps1.example
+├── tests/                      # Test suite
+│   ├── auth/                   # Local auth files (không push lên repo)
+│   ├── api-health/             # API health check scripts
+│   ├── integration/            # End-to-end integration tests
+│   ├── scripts/                # Debug API scripts
+│   ├── unit/                   # Unit tests
+│   │   ├── test_checkin.py     # Test logic điểm danh
+│   │   ├── test_core.py        # Test models, utils, session isolation
+│   │   ├── test_coverage_audit.py
+│   │   ├── test_display.py     # Test UI formatting (display module)
+│   │   ├── test_fetch_cdkeys.py
+│   │   ├── test_fetch_uids.py  # Test fetch UIDs (game × region)
+│   │   ├── test_main_flow.py   # Test main orchestration flow
+│   │   └── test_redeem.py      # Test đổi code & cross-region skip
+│   └── conftest.py             # Fixtures & Mock data chung
 ├── requirements/               # Tài liệu kỹ thuật
 │   ├── SPEC.md                 # System Specification
 │   ├── architecture.md         # Kiến trúc hệ thống (file này)
 │   ├── api_contract.md         # API Contract
-│   └── error_codes.md          # Error Handling & Codes
+│   ├── error_codes.md          # Error Handling & Codes
+│   └── raw.require.md          # Raw requirements gốc
+├── pytest.ini                  # Pytest config (root level)
 ├── requirements.txt
 └── README.md
 ```
@@ -225,9 +239,11 @@ log_info(acc.name, f"Genshin: UID {mask_uid(uid)}")
 
 ### 9.2. Centralized Config - Gom tất cả Constants
 
-- **`src/config.py`:** URLs, ORIGINS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `HEADER_WIDTH` (display), `DEFAULT_LOG_LEVEL`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
+- **`src/config.py`:** URLs, ORIGINS, COMMON_HEADERS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SYSTEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `HEADER_WIDTH` (display), `DEFAULT_LOG_LEVEL`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
 - **`src/constants.py`:** Giá trị không phụ thuộc module khác: `JSON_SEPARATORS`, `DEFAULT_CHROME_VERSION`, `DEFAULT_SOURCE_INFO` (default x-rpc-source_info cho `build_rpc_headers`).
-- **`src/models/game.py`:** Game enum, GameInfo, REGIONS (xem snippet dưới).
+- **`src/models/game.py`:** Game enum, GameInfo (với `get_sign_payload()`, `get_sign_headers()`), REGIONS mapping.
+- **`src/models/types.py`:** TypedDict definitions (`ApiResult`, `CookieCheckResult`, `CheckinInfoResult`, `CheckinResult`, `RedeemResult`) — Single Source of Truth cho cấu trúc dữ liệu giữa các module.
+- **`src/utils/display.py`:** Tập trung tất cả UI formatting/display logic (`display_checkin()`, `display_cdkeys()`, `display_uids()`, `display_redeem_results()`) — tách từ main.py.
 
 ```python
 # src/models/game.py - Game, GameInfo, REGIONS
@@ -353,10 +369,8 @@ CONNECT_TIMEOUT = 10
 MAX_RETRIES = 3
 RATE_LIMIT_DELAY = 5
 MIN_UID_LENGTH = 6
-DEFAULT_TIMEZONE = "Asia/Saigon"
+DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecated)
 HEADER_WIDTH = 50              # Số ký tự "=" cho header/footer (main.print_header)
-DEFAULT_LOG_LEVEL = "human"    # Fallback khi LOG_LEVEL không set hoặc không hợp lệ
-CHECKIN_ALREADY_SIGNED_KEYWORD = "trước đó"
 
 # RPC header values (single source cho checkin, redeem, helpers)
 RPC_LANGUAGE = "en-us"

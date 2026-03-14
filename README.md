@@ -91,31 +91,36 @@ Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; .
 ```
 hoyoverse-utility/
 ├── .github/workflows/
-│   └── hoyo-flow.yml          # GitHub Actions workflow
+│   ├── hoyo-flow.yml          # GitHub Actions workflow (daily run)
+│   └── test.yml               # CI: chạy tests + coverage trên mỗi push/PR
 ├── src/
-│   ├── main.py                # Entry point chính
+│   ├── main.py                # Entry point - orchestration flow
 │   ├── config.py              # Cấu hình tập trung (URLs, RPC, SYSTEM_MESSAGES, settings)
 │   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
 │   ├── api/
-│   │   ├── client.py          # HTTP client với retry & semaphore
-│   │   ├── checkin.py         # API điểm danh
-│   │   └── redeem.py          # API nhập code
+│   │   ├── client.py          # HTTP client với retry, semaphore & anti-detection
+│   │   ├── checkin.py         # API điểm danh (check info + sign)
+│   │   ├── redeem_fetch.py    # Fetch CDKeys & UIDs (read-only APIs)
+│   │   └── redeem_exchange.py # Exchange (nhập) redeem codes (write APIs)
 │   ├── models/
-│   │   ├── account.py         # Model tài khoản
-│   │   └── game.py            # Model game & region (REGIONS = region code → API value)
+│   │   ├── account.py         # Model tài khoản (immutable dataclass)
+│   │   ├── game.py            # Model game, GameInfo, REGIONS mapping
+│   │   └── types.py           # TypedDict definitions cho API return types
 │   └── utils/
-│       ├── headers.py         # Dynamic User-Agent
-│       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, ...)
-│       ├── logger.py         # Logging với trace_id
-│       └── security.py       # Mask dữ liệu nhạy cảm
+│       ├── display.py         # UI formatting & display logic (tables, reports)
+│       ├── headers.py         # Dynamic User-Agent (fake-useragent)
+│       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, current_hour, ...)
+│       ├── logger.py          # Logging với trace_id & force flush
+│       └── security.py        # Mask dữ liệu nhạy cảm (mask_uid)
 ├── tests/                     # Test suite
 │   ├── auth/                  # Các file authentication local (không bị push lên repo)
-│   ├── configs/               # Cấu hình phụ trợ cho Pytest
+│   ├── api-health/            # API health check scripts
 │   ├── integration/           # Chạy End-to-end integration tests
 │   ├── scripts/               # Script hỗ trợ Debug API
 │   ├── unit/                  # Unit tests cho từng module
 │   └── conftest.py            # Fixtures & Mock data chung
 ├── requirements/              # Chứa SPEC và Architecture mô tả nghiệp vụ Tool
+├── pytest.ini                 # Pytest config (root level)
 ├── requirements.txt           # Product dependencies (Không bao gồm Pytest libs)
 └── README.md                  # File này
 ```
@@ -145,36 +150,55 @@ pip install -r requirements.txt
 python -m src.main
 
 # Chạy test (Mock data - không cần cookie)
-pip install -r tests/configs/requirements.txt
-python -m pytest tests/ -v
+pip install pytest pytest-asyncio pytest-cov
+python -m pytest
+
+# Chạy test với coverage report
+python -m pytest --cov=src --cov-report=term-missing
+
+# Chạy API health tests (cần cookie thật)
+# Yêu cầu: set env vars HOYO_COOKIE_1 (xem tests/api-health/conftest.py)
+python -m pytest -m live -v
 ```
 
 ## 📊 Ví dụ output
 
 ```
-20/01/2026 07:38:22 [INFO] ==================================================
-20/01/2026 07:38:22 [INFO] HOYOLAB AUTO TOOL
-20/01/2026 07:38:23 [INFO] ==================================================
-20/01/2026 07:38:23 [INFO] --- KIỂM TRA ACCOUNTS ---
-20/01/2026 07:38:23 [INFO] [✓] ACC_1: Hợp lệ (u****@gmail.com)
-20/01/2026 07:38:23 [INFO]
-20/01/2026 07:38:24 [INFO] --- CHECK-IN ---
-20/01/2026 07:38:24 [INFO] === ACC_1 ===
-20/01/2026 07:38:24 [INFO]   Genshin Impact: ✓ Điểm danh thành công (Ngày 15)
-20/01/2026 07:38:24 [INFO]   Honkai: Star Rail: ✓ Đã điểm danh trước đó
-20/01/2026 07:38:24 [INFO]
-20/01/2026 07:38:24 [INFO] --- REDEEM CODE ---
-20/01/2026 07:38:24 [INFO] >> Fetching CDKeys...
-20/01/2026 07:38:24 [INFO] [SYSTEM] Genshin Impact: 3 codes [ABC, DEF, XYZ]
-20/01/2026 07:38:24 [INFO]
-20/01/2026 07:38:24 [INFO] === ACC_1 ===
-20/01/2026 07:38:24 [INFO]   Genshin Impact:
-20/01/2026 07:38:24 [INFO]     asia:
-20/01/2026 07:38:24 [INFO]       ABC: ✓ Thành công
-20/01/2026 07:38:24 [INFO]
-20/01/2026 07:38:24 [INFO] ==================================================
-20/01/2026 07:38:24 [INFO] DONE - 1.1s
-20/01/2026 07:38:24 [INFO] ==================================================
+20/01/2026 07:50:58 [INFO] ==================================================
+20/01/2026 07:50:58 [INFO] HOYOLAB AUTO TOOL
+20/01/2026 07:50:58 [INFO] Time: 2026-01-20 07:50:58
+20/01/2026 07:50:58 [INFO] Trace: a83cd482
+20/01/2026 07:50:58 [INFO] ==================================================
+20/01/2026 07:50:58 [INFO]
+20/01/2026 07:50:58 [INFO] --- KIỂM TRA ACCOUNTS ---
+20/01/2026 07:50:58 [INFO] [✓] ACC_1: Hợp lệ (u****@gmail.com)
+20/01/2026 07:50:58 [INFO] [✓] ACC_2: Hợp lệ (c****@gmail.com)
+20/01/2026 07:50:58 [INFO]
+20/01/2026 07:50:58 [INFO] Tổng: 2/2 accounts hợp lệ
+20/01/2026 07:50:58 [INFO]
+20/01/2026 07:50:59 [INFO] --- CHECK-IN ---
+20/01/2026 07:50:59 [INFO] Account   Genshin Impact        Honkai: Star Rail     Zenless Zone Zero
+20/01/2026 07:50:59 [INFO] ACC_1     ✓ Ngày 15             ✓ Đã điểm danh        ✓ Đã điểm danh
+20/01/2026 07:50:59 [INFO] ACC_2     ✓ Đã điểm danh        ✓ Đã điểm danh        — Chưa tạo nhân vật
+20/01/2026 07:50:59 [INFO]
+20/01/2026 07:50:59 [INFO] --- REDEEM CODE ---
+20/01/2026 07:50:59 [INFO] CDKeys:
+20/01/2026 07:50:59 [INFO]   Genshin Impact: 3 codes [ABC, DEF, XYZ]
+20/01/2026 07:50:59 [INFO]   Honkai: Star Rail: Không có codes
+20/01/2026 07:50:59 [INFO]   Zenless Zone Zero: Không có codes
+20/01/2026 07:50:59 [INFO] UIDs:
+20/01/2026 07:50:59 [INFO]   ACC_1: Genshin Impact(asia)
+20/01/2026 07:50:59 [INFO]   ACC_2: Genshin Impact(asia, usa)
+20/01/2026 07:50:59 [INFO]
+20/01/2026 07:50:59 [INFO] [Genshin Impact]
+20/01/2026 07:50:59 [INFO] Account   Region  ABC             DEF             XYZ
+20/01/2026 07:50:59 [INFO] ACC_1     asia    ✓ Thành công    ✓ Thành công    ⏭ Skip
+20/01/2026 07:50:59 [INFO] ACC_2     asia    ✓ Thành công    ✓ Thành công    ⏭ Skip
+20/01/2026 07:50:59 [INFO]           usa     ✓ Thành công    ✓ Thành công    ⏭ Skip
+20/01/2026 07:50:59 [INFO]
+20/01/2026 07:51:00 [INFO] ==================================================
+20/01/2026 07:51:00 [INFO] DONE - 1.5s
+20/01/2026 07:51:00 [INFO] ==================================================
 ```
 
 ## ⚙️ Cấu hình nâng cao
@@ -184,8 +208,7 @@ python -m pytest tests/ -v
 | Variable | Mô tả | Mặc định |
 |----------|-------|----------|
 | `ACC_*` | Cookie strings (ACC_1, ACC_2,...) | Bắt buộc |
-| `DEBUG` | Bật debug mode | `""` |
-| `LOG_LEVEL` | **Output format** (không phải log level): `human`, `json`, `both` | `human` |
+| `DEBUG` | Bật debug mode (hiển thị DEBUG level logs) | `""` |
 
 ### Settings (trong [`src/config.py`](src/config.py))
 
@@ -193,13 +216,12 @@ python -m pytest tests/ -v
 SEMAPHORE_LIMIT = 20      # Số request song song tối đa
 REDEEM_DELAY = 5          # Giây giữa mỗi lần nhập code
 REQUEST_TIMEOUT = 30      # Timeout request (giây)
+MIN_REQUEST_TIMEOUT = 15  # Floor timeout per attempt (tránh timeout quá sớm)
 CONNECT_TIMEOUT = 10      # Timeout kết nối (giây)
 MAX_RETRIES = 3           # Số lần thử lại khi lỗi
 RATE_LIMIT_DELAY = 5      # Giây chờ khi bị rate limit (429)
 HEADER_WIDTH = 50         # Số ký tự "=" cho header/footer (display)
 ```
-
-Display và RPC: `HEADER_WIDTH`, `DEFAULT_SOURCE_INFO` (constants), `DEFAULT_LOG_LEVEL` — xem `src/config.py` và `src/constants.py`.
 
 ## ❓ Troubleshooting
 
