@@ -65,13 +65,28 @@ secrets:
 
 ### 2.2. Workflow Environment Variables
 
+Secrets được inject tự động qua `toJSON(secrets)` với heredoc syntax (chống injection):
+
 ```yaml
-env:
-  ACC_1: ${{ secrets.ACC_1 }}
-  ACC_2: ${{ secrets.ACC_2 }}
-  ACC_3: ${{ secrets.ACC_3 }}
-  ACC_4: ${{ secrets.ACC_4 }}
+- name: Inject ACC secrets into env
+  env:
+    ALL_SECRETS: ${{ toJSON(secrets) }}
+  run: |
+    python3 -c "
+    import json, os, uuid
+    secrets = json.loads(os.environ['ALL_SECRETS'])
+    env_file = os.environ['GITHUB_ENV']
+    acc_secrets = {k: v for k, v in secrets.items() if k.startswith('ACC_') and v.strip()}
+    with open(env_file, 'a') as f:
+        for key, value in sorted(acc_secrets.items()):
+            delimiter = f'ghadelim_{uuid.uuid4().hex[:8]}'
+            f.write(f'{key}<<{delimiter}\n{value}\n{delimiter}\n')
+    "
 ```
+
+> [!NOTE]
+> Chỉ filter `ACC_*` keys — không dump `GITHUB_TOKEN` hay secrets khác vào env.
+> Heredoc syntax ngăn cookie chứa `=` hoặc newline inject env vars.
 
 **Biến tùy chọn:**
 - `COOKIE_CHECK_APP_VERSION`: Giá trị header `x-rpc-app_version` cho API kiểm tra cookie (user_brief_info). Nếu không set thì gửi rỗng — API vẫn chấp nhận. Khi có phương pháp lấy version (vd iTunes API, xem Roadmap) có thể set biến này.
@@ -168,37 +183,44 @@ ltuid = acc.cookies.get("ltuid_v2")
 ## 3. GitHub Actions Workflow (Đề xuất)
 
 ```yaml
-name: HoYoLab Daily Check-in & Redeem
+name: HoYo Flow
 
 on:
   schedule:
-    # 4:45 sáng giờ Việt Nam (GMT+7) = 21:45 UTC ngày hôm trước
     - cron: '45 21 * * *'
-  workflow_dispatch:  # Cho phép chạy manual
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  run:
+  core_flow:
     runs-on: ubuntu-latest
-    
+    environment: live
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-      
+        uses: actions/checkout@v6
+
       - name: Set up Python with pip cache
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.13'
-          cache: 'pip'  # Built-in cache, tự detect requirements.txt
-          
+          cache: 'pip'
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-        
-      - name: Run script
+
+      - name: Inject ACC secrets into env
         env:
-          ACC_1: ${{ secrets.ACC_1 }}
-          ACC_2: ${{ secrets.ACC_2 }}
-          ACC_3: ${{ secrets.ACC_3 }}
-          ACC_4: ${{ secrets.ACC_4 }}
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          # Filter ACC_* keys + heredoc syntax (xem §2.2)
+          python3 -c "..."
+
+      - name: Run script
         run: python -m src.main
 ```
 
@@ -238,34 +260,53 @@ Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra
 ```
 tests/
 ├── auth/                  # Các file auth local (cookies.ps1.example)
-├── configs/               # Cấu hình phụ trợ cho Pytest
+├── api-health/            # API health check scripts
 ├── integration/           # End-to-end integration tests (test_integration.py)
 ├── scripts/               # Script hỗ trợ Debug API (debug_checkin_info.py)
 ├── unit/                  # Unit tests chi tiết
 │   ├── test_checkin.py    # Test logic điểm danh (Sol/Luna)
 │   ├── test_core.py       # Test models, utils và session isolation
 │   ├── test_coverage_audit.py
+│   ├── test_display.py    # Test UI formatting (display module)
 │   ├── test_fetch_cdkeys.py
+│   ├── test_fetch_uids.py # Test fetch UIDs (game × region)
+│   ├── test_main_flow.py  # Test main orchestration flow
 │   └── test_redeem.py     # Test đổi code & cross-region skip
-└── conftest.py            # Fixtures & Mock data chung
+├── conftest.py            # Fixtures & Mock data chung
+└── pytest.ini             # (root level) Pytest config
 ```
 
 ### 5.2. Các kịch bản Test quan trọng
 
 - **Session Isolation**: Đảm bảo `ClientSession` dùng `DummyCookieJar` để không bị rò rỉ cookie giữa các tài khoản khi chạy song song.
 - **Header Differentiation**: Kiểm tra `x-rpc-*` headers được gửi đúng theo từng loại game (Sol vs Luna).
-- **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` (hết hạn), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
-- **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `account_id_v2`,...).
+- **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` hoặc `-2016` (hết hạn/expired), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
+- **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`).
+- **Display Formatting**: Đảm bảo display functions format đúng kết quả check-in, CDKeys, UIDs và redeem results.
+- **Fetch UIDs**: Đảm bảo fetch UIDs song song (game × region) và lọc đúng accounts có UID.
+- **Main Flow**: Test orchestration flow end-to-end (validate → check-in → fetch → redeem).
 
 ### 5.3. Cách chạy Test
 
 ```bash
-# Cài đặt pytest-asyncio trước
-pip install pytest-asyncio
+# Cài đặt test dependencies
+pip install pytest pytest-asyncio pytest-cov
 
 # Chạy toàn bộ test suite
-pytest tests
+python -m pytest
+
+# Chạy với coverage report
+python -m pytest --cov=src --cov-report=term-missing
+
+# Chạy chỉ unit tests
+python -m pytest tests/unit/
+
+# Chạy tests với live API (cần cookie)
+python -m pytest -m live -v
 ```
+
+> [!NOTE]
+> CI pipeline (`test.yml`) chạy tự động trên mỗi push/PR với `--cov-fail-under=95`.
 
 ---
 
