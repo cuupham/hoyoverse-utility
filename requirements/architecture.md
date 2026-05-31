@@ -160,15 +160,14 @@ hoyoverse-utility/
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── account.py          # Account model (immutable dataclass)
-│   │   ├── game.py             # Game enum, GameInfo, REGIONS mapping
+│   │   ├── game.py             # Game enum, GameInfo, REGIONS + reverse maps (GAME_BY_BIZ, REGION_CODE_BY_VALUE)
 │   │   └── types.py            # TypedDict definitions (ApiResult, CheckinResult, RedeemResult, ...)
 │   └── utils/
 │       ├── __init__.py
 │       ├── display.py          # UI formatting & display logic (tables, reports)
 │       ├── headers.py          # Dynamic User-Agent headers (fake-useragent)
 │       ├── helpers.py          # Helper functions (build_rpc_headers, current_hour, ...)
-│       ├── logger.py           # Logging utilities (trace_id, ForceFlushStreamHandler, log_print)
-│       └── security.py         # Mask sensitive data (mask_uid)
+│       └── logger.py           # Logging utilities (trace_id, ForceFlushStreamHandler, log_print)
 ├── tests/                      # Test suite
 │   ├── auth/                   # Local auth files (không push lên repo)
 │   ├── api-health/             # API health check scripts
@@ -180,7 +179,7 @@ hoyoverse-utility/
 │   │   ├── test_coverage_audit.py
 │   │   ├── test_display.py     # Test UI formatting (display module)
 │   │   ├── test_fetch_cdkeys.py
-│   │   ├── test_fetch_uids.py  # Test fetch UIDs (game × region)
+│   │   ├── test_fetch_uids.py  # Test fetch UIDs (1 request, map game_biz/region)
 │   │   ├── test_main_flow.py   # Test main orchestration flow
 │   │   └── test_redeem.py      # Test đổi code & cross-region skip
 │   └── conftest.py             # Fixtures & Mock data chung
@@ -195,53 +194,32 @@ hoyoverse-utility/
 └── README.md
 ```
 
-### 9.1. Security Utilities - Mask Sensitive Data
+### 9.1. Security - Mask Sensitive Data
 
 > [!WARNING]
-> **BẮT BUỘC** mask sensitive data trong logs để tránh lộ thông tin khi chạy trên public repo.
+> **BẮT BUỘC** không log cookie/token. `safe_api_call` không log `headers` (chứa cookie); `_sanitize_error_message` lọc các pattern nhạy cảm khỏi error message.
 
 > [!NOTE]
-> **Email không cần mask thủ công** - API đã trả về `email_mask` sẵn (VD: `u***34@example.com`)
+> **Email không cần mask thủ công** - API đã trả về `email_mask` sẵn (VD: `u***34@example.com`). UID hiển thị theo region/game (không in UID đầy đủ trong report tổng hợp).
 
 ```python
-# src/utils/security.py
-
-def mask_uid(uid: str | int | None) -> str:
-    """
-    Mask UID: 123456789 → 123***789
-    """
-    if not uid:
-        return "***"
-    uid = str(uid)
-    if len(uid) <= MIN_UID_LENGTH:
-        return "***"
-    return f"{uid[:3]}***{uid[-3:]}"
-```
-
-**Sử dụng:**
-```python
-from utils.security import mask_uid
-from utils.logger import log_info
+from src.utils.logger import log_info
 
 # Email đã được mask từ API response
 email_mask = response["data"]["email_mask"]  # u***34@example.com
-
-# UID cần mask thủ công
 log_info(acc.name, f"Hợp lệ ({email_mask})")
-log_info(acc.name, f"Genshin: UID {mask_uid(uid)}")
 
 # Output:
 # 20/01/2026 07:50:58 [INFO] [ACC_1] Hợp lệ (u***34@example.com)
-# 20/01/2026 07:50:58 [INFO] [ACC_1] Genshin Impact: Character UID 123***789
 ```
 
 ---
 
 ### 9.2. Centralized Config - Gom tất cả Constants
 
-- **`src/config.py`:** URLs, ORIGINS, COMMON_HEADERS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_PLATFORM`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `REDEEM_MESSAGES`, `SYSTEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `HEADER_WIDTH` (display), `DEFAULT_LOG_LEVEL`, `CHECKIN_ALREADY_SIGNED_KEYWORD`, v.v.
+- **`src/config.py`:** URLs, ORIGINS, COMMON_HEADERS, settings (timeout, retry, semaphore), RPC header values (`RPC_LANGUAGE`, `RPC_CLIENT_TYPE`, `RPC_SYS_VERSION`, `RPC_SHOW_TRANSLATED`), page names (`PAGE_NAME_HOME`, `PAGE_NAME_HOME_GAME`), `REDEEM_LANG`, `COOKIE_CHECK_PAGE_INFO`, `ALL_ROLES_PAGE_INFO`, `REDEEM_MESSAGES`, `SYSTEM_MESSAGES`, `SKIP_REMAINING_IN_REGION`, `SKIP_GLOBALLY_RETCODES`, `REDEEM_SKIP_MESSAGE_EXPIRED`, `DEFAULT_TIMEZONE`, `HEADER_WIDTH` (display), v.v.
 - **`src/constants.py`:** Giá trị không phụ thuộc module khác: `JSON_SEPARATORS`, `DEFAULT_CHROME_VERSION`, `DEFAULT_SOURCE_INFO` (default x-rpc-source_info cho `build_rpc_headers`).
-- **`src/models/game.py`:** Game enum, GameInfo (với `get_sign_payload()`, `get_sign_headers()`), REGIONS mapping.
+- **`src/models/game.py`:** Game enum, GameInfo (với `get_sign_payload()`, `get_sign_headers()`), REGIONS mapping + reverse maps (`GAME_BY_BIZ`, `REGION_CODE_BY_VALUE`).
 - **`src/models/types.py`:** TypedDict definitions (`ApiResult`, `CookieCheckResult`, `CheckinInfoResult`, `CheckinResult`, `RedeemResult`) — Single Source of Truth cho cấu trúc dữ liệu giữa các module.
 - **`src/utils/display.py`:** Tập trung tất cả UI formatting/display logic (`display_checkin()`, `display_cdkeys()`, `display_uids()`, `display_redeem_results()`) — tách từ main.py.
 
@@ -368,14 +346,12 @@ REQUEST_TIMEOUT = 30
 CONNECT_TIMEOUT = 10
 MAX_RETRIES = 3
 RATE_LIMIT_DELAY = 5
-MIN_UID_LENGTH = 6
 DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecated)
 HEADER_WIDTH = 50              # Số ký tự "=" cho header/footer (main.print_header)
 
 # RPC header values (single source cho checkin, redeem, helpers)
 RPC_LANGUAGE = "en-us"
 RPC_CLIENT_TYPE = "4"
-RPC_PLATFORM = "4"
 RPC_SYS_VERSION = "Windows NT 10.0"
 RPC_SHOW_TRANSLATED = "false"
 PAGE_NAME_HOME_GAME = "HomeGamePage"
@@ -383,7 +359,7 @@ PAGE_NAME_HOME = "HomePage"
 REDEEM_LANG = "en"
 REDEEM_SKIP_MESSAGE_EXPIRED = "⏭ Đã skip (expired/invalid từ region trước)"
 COOKIE_CHECK_PAGE_INFO = json.dumps({...}, separators=JSON_SEPARATORS)  # pageName: PAGE_NAME_HOME
-COOKIE_CHECK_APP_VERSION = _get_cookie_check_app_version()  # từ env
+ALL_ROLES_PAGE_INFO = COOKIE_CHECK_PAGE_INFO  # fetch UID account-wide
 REDEEM_MESSAGES = {...}
 SKIP_REMAINING_IN_REGION = {-2011}
 SKIP_GLOBALLY_RETCODES = {-2016, -2001}
@@ -392,7 +368,8 @@ SKIP_REMAINING_RETCODES = ...
 
 **Cách sử dụng:**
 ```python
-from config import Game, URLS, REGIONS, SEMAPHORE_LIMIT
+from src.config import URLS, SEMAPHORE_LIMIT
+from src.models.game import Game, REGIONS
 
 # Duyệt qua tất cả games
 for game in Game:
@@ -449,7 +426,7 @@ def get_accounts_from_env() -> dict[str, str]:
 
 **Trong project này:**
 - Check-in: N accounts × 3 games = queries song song
-- Fetch UIDs: N accounts × 3 games × 4 regions = queries song song
+- Fetch UIDs: N accounts × 1 request (1 call lấy mọi game role) = queries song song
 - Redeem: Nhiều accounts/servers chạy song song
 
 → `aiohttp` phù hợp hơn vì cần **concurrency cao** với **ít resources**.
@@ -482,13 +459,14 @@ async def main():
         await run_redeem(session, accounts, cdkeys)
 
 # Ví dụ sử dụng session trong hàm
-async def fetch_uid(session: aiohttp.ClientSession, account: Account, game: str, region: str):
+async def fetch_all_uids(session: aiohttp.ClientSession, account: Account):
     headers = {
         "Cookie": account.cookie_str,
         "x-rpc-device_id": account.mhy_uuid,
         # ... other headers
     }
-    async with session.get(URL, headers=headers, params=params) as response:
+    # 1 request trả mọi game role (không kèm region/game_biz)
+    async with session.get(URL, headers=headers) as response:
         return await response.json()
 ```
 

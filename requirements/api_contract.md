@@ -86,15 +86,14 @@ def unix_ms() -> int:
 | Method   | `GET` |
 | Cookie   | Required |
 
-**Headers:** (theo curl thực tế từ www.hoyolab.com — origin/referer = www, device_id = _HYVUUID, source_info = HomeUserPage/Post). Giá trị RPC lấy từ `config`: `RPC_CLIENT_TYPE`, `RPC_LANGUAGE`, `RPC_SHOW_TRANSLATED`, `RPC_SYS_VERSION`, `PAGE_NAME_HOME`, `COOKIE_CHECK_PAGE_INFO`; source_info dùng `constants.JSON_SEPARATORS`.
+**Headers:** Dùng `build_rpc_headers(account, "hoyolab", COOKIE_CHECK_PAGE_INFO, PAGE_NAME_HOME, source_info)` với source_info = HomeUserPage/Post. Giá trị RPC lấy từ `config`: `RPC_CLIENT_TYPE`, `RPC_LANGUAGE`, `RPC_SHOW_TRANSLATED`, `RPC_SYS_VERSION`, `PAGE_NAME_HOME`, `COOKIE_CHECK_PAGE_INFO`; source_info dùng `constants.JSON_SEPARATORS`. Không gửi `x-rpc-app_version` (đã verify không cần thiết).
 ```python
 headers = {
     **COMMON_HEADERS,
     **ORIGINS["hoyolab"],
     "Cookie": account.cookie_str,
-    "x-rpc-app_version": COOKIE_CHECK_APP_VERSION,
     "x-rpc-client_type": RPC_CLIENT_TYPE,
-    "x-rpc-device_id": account.hyv_uuid,  # _HYVUUID (khác các API khác dùng _MHYUUID)
+    "x-rpc-device_id": account.mhy_uuid,  # _MHYUUID
     "x-rpc-hour": current_hour(),
     "x-rpc-language": RPC_LANGUAGE,
     "x-rpc-lrsag": "",
@@ -184,9 +183,11 @@ params = {"lang": RPC_LANGUAGE, "act_id": game_info.act_id}  # RPC_LANGUAGE từ
 
 **Method:** `POST`
 
-**Headers (Genshin):** `content-type`, `x-rpc-app_version`, `x-rpc-device_id` (account.hyv_uuid), `x-rpc-platform` (từ `config.RPC_PLATFORM`).
+**Headers:** Base từ `build_rpc_headers(account, "act_hoyolab", ...)` — gồm `x-rpc-client_type` (`config.RPC_CLIENT_TYPE`), `x-rpc-device_id` (`account.mhy_uuid`), v.v. (xem `get_sign_headers` trong `src/models/game.py`).
 
-**Headers (Star Rail / ZZZ):** `x-rpc-client_type`, `x-rpc-platform` lấy từ `config.RPC_CLIENT_TYPE`, `config.RPC_PLATFORM`; `x-rpc-signgame` = game_info.signgame.
+**Headers (Genshin riêng):** thêm `content-type: application/json;charset=UTF-8`, `x-rpc-app_version: ""`, `x-rpc-device_name: ""` (quirk bắt buộc của Genshin sign API).
+
+**Headers (Star Rail / ZZZ riêng):** thêm `x-rpc-signgame` = `game_info.signgame` (`hkrpg` / `zzz`).
 
 **Body:**
 ```python
@@ -262,34 +263,35 @@ codes = [
 
 ### 5.4. API Fetch UID (Lấy UID player) — `src/api/redeem_fetch.py`
 
-**Mục đích:** Lấy UID của player cho từng game/server
+**Mục đích:** Lấy UID của player cho **mọi** game/server trong **1 request**
 
 | Property | Value |
 |----------|-------|
 | URL      | `https://api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken` |
 | Method   | `GET` |
 
-**Headers:** Dùng `build_rpc_headers(account, "hoyolab", game_info.get_page_info(PAGE_NAME_HOME_GAME), page_name=PAGE_NAME_HOME_GAME)`; `PAGE_NAME_HOME_GAME` từ config.
+**Headers:** Dùng `build_rpc_headers(account, "hoyolab", ALL_ROLES_PAGE_INFO, page_name=PAGE_NAME_HOME)` — page_info account-wide (gameId rỗng), vì query không gắn game cụ thể.
 
-**Params:**
+**Params:** Không có. Gọi endpoint **không kèm** `region`/`game_biz` → API trả về tất cả game roles của account.
+
+**Trích xuất + map ngược UID:**
 ```python
-params = {"region": region_value, "game_biz": game_info.game_biz}
+# response["data"]["list"] chứa mọi role: {game_biz, region, game_uid, ...}
+for role in response["data"].get("list", []):
+    game = GAME_BY_BIZ.get(role.get("game_biz"))          # "hkrpg_global" -> Game.STAR_RAIL
+    if game is None:
+        continue                                           # Game không hỗ trợ (Honkai 3rd...)
+    region_code = REGION_CODE_BY_VALUE.get((game, role.get("region")))  # "prod_gf_jp" -> "asia"
+    uid = role.get("game_uid")
+    if region_code and uid:
+        uids[game][region_code] = uid
 ```
-`region_value` = `REGIONS[game][region_code]`; trong code và dict UID trả về dùng **region code** (asia, usa, euro, tw). Xem định nghĩa `REGIONS` trong `src/models/game.py`.
+`GAME_BY_BIZ` và `REGION_CODE_BY_VALUE` derive từ `Game` enum + `REGIONS` (single source) trong `src/models/game.py`. Dict UID trả về dùng **region code** (asia, usa, euro, tw).
 
-**Trích xuất UID:**
-```python
-if response["retcode"] == 0:
-    uid_list = response["data"].get("list", [])
-    if uid_list:  # Kiểm tra list không rỗng
-        uid = uid_list[0].get("game_uid")
-    else:
-        uid = None  # Account chưa chơi game này ở region này
-```
-
-**Chiến lược đa luồng:** 
-- Mỗi account duyệt 3 games × 4 regions = **12 luồng song song**
-- Accounts không có UID nào (chưa vào game lần nào) sẽ bị bỏ qua
+**Chiến lược:**
+- **1 request/account** lấy mọi UID (trước đây 3 games × 4 regions = 12 request rỗng dư thừa)
+- Roles của game/region không hỗ trợ → bỏ qua khi map ngược
+- Accounts không có UID nào (chưa vào game lần nào) sẽ bị bỏ qua ở bước redeem
 
 ---
 
