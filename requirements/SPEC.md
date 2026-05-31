@@ -88,9 +88,6 @@ Secrets được inject tự động qua `toJSON(secrets)` với heredoc syntax 
 > Chỉ filter `ACC_*` keys — không dump `GITHUB_TOKEN` hay secrets khác vào env.
 > Heredoc syntax ngăn cookie chứa `=` hoặc newline inject env vars.
 
-**Biến tùy chọn:**
-- `COOKIE_CHECK_APP_VERSION`: Giá trị header `x-rpc-app_version` cho API kiểm tra cookie (user_brief_info). Nếu không set thì gửi rỗng — API vẫn chấp nhận. Khi có phương pháp lấy version (vd iTunes API, xem Roadmap) có thể set biến này.
-
 ### 2.3. Cookie Format
 
 ```
@@ -149,11 +146,6 @@ class Account:
     def mhy_uuid(self) -> str:
         """Trả về _MHYUUID cho x-rpc-device_id"""
         return self.cookies.get('_MHYUUID', '')
-    
-    @property
-    def hyv_uuid(self) -> str:
-        """Trả về _HYVUUID cho một số API sign"""
-        return self.cookies.get('_HYVUUID', '')
 ```
 
 > [!NOTE]
@@ -269,7 +261,7 @@ tests/
 │   ├── test_coverage_audit.py
 │   ├── test_display.py    # Test UI formatting (display module)
 │   ├── test_fetch_cdkeys.py
-│   ├── test_fetch_uids.py # Test fetch UIDs (game × region)
+│   ├── test_fetch_uids.py # Test fetch UIDs (1 request, map game_biz/region)
 │   ├── test_main_flow.py  # Test main orchestration flow
 │   └── test_redeem.py     # Test đổi code & cross-region skip
 ├── conftest.py            # Fixtures & Mock data chung
@@ -283,7 +275,7 @@ tests/
 - **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` hoặc `-2016` (hết hạn/expired), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
 - **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`).
 - **Display Formatting**: Đảm bảo display functions format đúng kết quả check-in, CDKeys, UIDs và redeem results.
-- **Fetch UIDs**: Đảm bảo fetch UIDs song song (game × region) và lọc đúng accounts có UID.
+- **Fetch UIDs**: Đảm bảo fetch UIDs trong 1 request (map ngược game_biz/region về model) và lọc đúng accounts có UID.
 - **Main Flow**: Test orchestration flow end-to-end (validate → check-in → fetch → redeem).
 
 ### 5.3. Cách chạy Test
@@ -311,9 +303,6 @@ python -m pytest -m live -v
 ---
 
 ## 6. Roadmap & Tương lai (Planned)
-
-### 🚀 Smart Version Detection
-Tự động săn phiên bản HoYoLab mới nhất từ App Store (iTunes API lookup ID `1559483982`) để thay thế việc set cứng `APP_VERSION`. Điều này giúp bypass các đợt cập nhật app bất ngờ của HoYoverse.
 
 ### 🌎 Standardized Local Timezone
 Tự động lấy múi giờ hệ thống (Local Timezone) thay vì mặc định `Asia/Saigon`. Đảm bảo tính nhất quán khi người dùng chạy tool ở các khu vực khác nhau trên thế giới.

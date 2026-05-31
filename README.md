@@ -110,8 +110,7 @@ hoyoverse-utility/
 │       ├── display.py         # UI formatting & display logic (tables, reports)
 │       ├── headers.py         # Dynamic User-Agent (fake-useragent)
 │       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, current_hour, ...)
-│       ├── logger.py          # Logging với trace_id & force flush
-│       └── security.py        # Mask dữ liệu nhạy cảm (mask_uid)
+│       └── logger.py          # Logging với trace_id & force flush
 ├── tests/                     # Test suite
 │   ├── auth/                  # Các file authentication local (không bị push lên repo)
 │   ├── api-health/            # API health check scripts
