@@ -49,8 +49,3 @@ class Account:
     def mhy_uuid(self) -> str:
         """Trả về _MHYUUID cho x-rpc-device_id"""
         return self.cookies.get("_MHYUUID", "")
-
-    @property
-    def hyv_uuid(self) -> str:
-        """Trả về _HYVUUID cho một số API sign"""
-        return self.cookies.get("_HYVUUID", "")

@@ -21,6 +21,7 @@ from src.config import (
     SEMAPHORE_LIMIT,
     SYSTEM_MESSAGES,
 )
+from src.models.types import ApiResult
 
 # HTTP status codes that should trigger retry (transient server errors)
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
@@ -91,7 +92,7 @@ async def safe_api_call(
     json_data: dict | None = None,
     method: str = "GET",
     max_retries: int = MAX_RETRIES,
-) -> dict[str, Any]:
+) -> ApiResult:
     """Pattern xử lý exception cho tất cả API calls với retry
 
     Args:

@@ -8,7 +8,7 @@ from typing import Any, Required, TypedDict
 
 # ==================== API Client ====================
 class ApiResult(TypedDict, total=False):
-    """Kết quả từ safe_api_call"""
+    """Kết quả từ safe_api_call — single source cho mọi API response wrapper."""
 
     success: Required[bool]
     data: dict[str, Any]

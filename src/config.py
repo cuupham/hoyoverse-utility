@@ -1,7 +1,7 @@
 """Centralized configuration - Tất cả constants và settings"""
 
 import json
-import os
+from typing import Any
 
 from src.constants import JSON_SEPARATORS
 from src.utils.headers import DYNAMIC_HEADERS
@@ -31,7 +31,8 @@ ORIGINS = {
 }
 
 # ==================== API URLs ====================
-URLS = {
+# Heterogeneous: vài key là str (endpoint đơn), vài key là dict[code, str] (per-game).
+URLS: dict[str, Any] = {
     # Cookie validation
     "check_cookie": "https://bbs-api-os.hoyolab.com/community/misc/wapi/account/user_brief_info",
     # Check-in
@@ -65,7 +66,6 @@ MIN_REQUEST_TIMEOUT = 15  # Floor timeout per attempt (prevent premature timeout
 CONNECT_TIMEOUT = 10  # Connection timeout
 MAX_RETRIES = 3  # Retry attempts
 RATE_LIMIT_DELAY = 5  # Seconds to wait when rate limited (429)
-MIN_UID_LENGTH = 6  # UIDs shorter than this are masked entirely
 DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecated)
 
 # Connection pool (client session)
@@ -92,10 +92,13 @@ COOKIE_CHECK_PAGE_INFO = json.dumps(
     separators=JSON_SEPARATORS,
 )
 
+# Fetch all game roles: page_info account-wide (getUserGameRolesByLtoken trả mọi game,
+# không gắn game cụ thể nên gameId rỗng).
+ALL_ROLES_PAGE_INFO = COOKIE_CHECK_PAGE_INFO
 
-# Cookie check API (user_brief_info) - x-rpc-app_version
-# Lấy từ env; rỗng nếu không set (API vẫn chấp nhận).
-COOKIE_CHECK_APP_VERSION = os.environ.get("COOKIE_CHECK_APP_VERSION", "").strip()
+# NOTE: x-rpc-app_version cố tình KHÔNG gửi cho cookie check (user_brief_info).
+# Đã verify (browser, account thật): header này không tham gia chữ ký DS và không
+# ảnh hưởng kết quả — có/không/cũ/mới đều trả về như nhau. Bỏ hẳn theo KISS/YAGNI.
 
 # ==================== REDEEM MESSAGES (i18n ready) ====================
 REDEEM_MESSAGES = {

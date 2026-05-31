@@ -121,3 +121,19 @@ REGIONS: dict[Game, dict[str, str]] = {
         "tw": "prod_gf_sg",
     },
 }
+
+
+# ==================== REVERSE LOOKUPS ====================
+# Derive từ Enum + REGIONS (single source) để map response API → model.
+# Dùng cho fetch_all_uids: 1 request getUserGameRolesByLtoken trả về tất cả
+# roles với (game_biz, region_value), cần map ngược về (Game, region_code).
+
+# game_biz -> Game (vd "hkrpg_global" -> Game.STAR_RAIL)
+GAME_BY_BIZ: dict[str, Game] = {game.value.game_biz: game for game in Game}
+
+# (Game, region_value) -> region_code (vd (Game.ZZZ, "prod_gf_jp") -> "asia")
+REGION_CODE_BY_VALUE: dict[tuple[Game, str], str] = {
+    (game, region_value): region_code
+    for game, regions in REGIONS.items()
+    for region_code, region_value in regions.items()
+}

@@ -12,9 +12,9 @@ Mục đích:
 import pytest
 
 from src.api.checkin import check_cookie, get_checkin_info
-from src.api.redeem_fetch import fetch_cdkeys, fetch_uid
+from src.api.redeem_fetch import fetch_cdkeys, fetch_all_uids
 from src.api.redeem_exchange import exchange_cdkey
-from src.models.game import Game, REGIONS
+from src.models.game import Game
 
 # Tất cả tests trong file này đều cần marker live
 pytestmark = pytest.mark.live
@@ -99,35 +99,30 @@ class TestCDKeyFetchEndpoint:
 
 
 class TestUIDFetchEndpoint:
-    """Kiểm tra endpoint: api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken"""
+    """Kiểm tra endpoint: api-account-os.hoyolab.com/binding/api/getUserGameRolesByLtoken
+
+    fetch_all_uids dùng 1 request trả mọi game role rồi map ngược về (Game, region_code).
+    """
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("game", list(Game), ids=lambda g: g.value.code)
-    async def test_uid_fetch_responds(self, live_session, live_account, game):
-        """Endpoint trả UID cho ít nhất 1 region (nếu account chơi game đó)"""
-        found_any = False
+    async def test_uid_fetch_responds_with_valid_format(self, live_session, live_account):
+        """Endpoint trả UID hợp lệ (chuỗi số ≥6) cho mọi role tìm được."""
+        all_uids = await fetch_all_uids(live_session, live_account)
 
-        for region_code in REGIONS[game]:
-            uid = await fetch_uid(live_session, live_account, game, region_code)
-            if uid:
-                found_any = True
-                # UID phải là chuỗi số hợp lệ
-                assert uid.isdigit(), f"UID format lạ: {uid!r}"
-                assert len(uid) >= 6, f"UID quá ngắn: {uid}"
+        assert isinstance(all_uids, dict)
+        assert set(all_uids.keys()) == set(Game), "Phải có key cho cả 3 games"
 
-        if not found_any:
-            pytest.skip(f"{live_account.name} không chơi {game.value.name}")
+        for game, regions in all_uids.items():
+            for region_code, uid in regions.items():
+                assert uid.isdigit(), f"{game.value.name}/{region_code}: UID format lạ: {uid!r}"
+                assert len(uid) >= 6, f"{game.value.name}/{region_code}: UID quá ngắn: {uid}"
 
     @pytest.mark.asyncio
     async def test_uid_fetch_at_least_one_game(self, live_session, live_account):
         """Account phải có UID cho ít nhất 1 game"""
-        total_uids = 0
-        for game in Game:
-            for region_code in REGIONS[game]:
-                uid = await fetch_uid(live_session, live_account, game, region_code)
-                if uid:
-                    total_uids += 1
+        all_uids = await fetch_all_uids(live_session, live_account)
 
+        total_uids = sum(len(regions) for regions in all_uids.values())
         assert total_uids > 0, f"{live_account.name}: Không tìm thấy UID nào - account có thể chưa tạo nhân vật"
 
 
@@ -145,17 +140,14 @@ class TestRedeemEndpoint:
     @pytest.mark.parametrize("game", list(Game), ids=lambda g: g.value.code)
     async def test_redeem_endpoint_responds(self, live_session, live_account, game):
         """Endpoint trả retcode cho invalid code (chứng minh endpoint sống)"""
-        # Tìm UID đầu tiên cho game này
-        uid = None
-        region = None
-        for region_code in REGIONS[game]:
-            uid = await fetch_uid(live_session, live_account, game, region_code)
-            if uid:
-                region = region_code
-                break
+        # Lấy UID đầu tiên cho game này (1 request cho mọi game/region)
+        all_uids = await fetch_all_uids(live_session, live_account)
+        game_regions = all_uids.get(game, {})
 
-        if not uid:
+        if not game_regions:
             pytest.skip(f"{live_account.name} không chơi {game.value.name}")
+
+        region, uid = next(iter(game_regions.items()))
 
         result = await exchange_cdkey(
             live_session, live_account, game, region, uid, self._PROBE_CODE

@@ -14,7 +14,6 @@ from src.api.redeem_fetch import fetch_cdkeys
 from src.models.account import Account
 from src.models.game import Game, GameInfo, REGIONS
 from src.utils.helpers import get_accounts_from_env, build_rpc_headers, unix_ms
-from src.utils.security import mask_uid
 from src.utils.logger import log_print
 from tests.conftest import MockAsyncCM
 
@@ -353,25 +352,6 @@ class TestAccountEdgeCases:
         acc = Account.from_env("ACC", cookie)
         with pytest.raises(AttributeError):
             acc.name = "new_name"
-
-
-# ==================== MASK UID BOUNDARIES ====================
-
-
-class TestMaskUidBoundaries:
-    def test_exactly_min_length(self):
-        """UID đúng 6 ký tự (MIN_UID_LENGTH) → masked entirely"""
-        assert mask_uid("123456") == "***"
-
-    def test_one_above_min(self):
-        """UID 7 ký tự → partial mask"""
-        assert mask_uid("1234567") == "123***567"
-
-    def test_empty_string(self):
-        assert mask_uid("") == "***"
-
-    def test_zero_int(self):
-        assert mask_uid(0) == "***"
 
 
 # ==================== SEMAPHORE & CLIENT MISSING LINES ====================
