@@ -1,10 +1,13 @@
 # Local testing dependencies (không push lên GitHub)
-aiohttp>=3.9.0
-fake-useragent>=1.5.0
+# Runtime deps — giữ đồng bộ với requirements.txt ở root
+aiohttp>=3.13.3
+fake-useragent>=2.2.0
+tzdata>=2024.1  # IANA tz database — ZoneInfo cần trên Windows & minimal containers
 
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
+pytest-cov>=5.0.0  # CI dùng --cov-fail-under
 
 # Audit & Linter
 mypy>=1.0.0
