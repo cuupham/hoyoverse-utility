@@ -1,99 +1,118 @@
-"""Tests cho fetch_uid và fetch_all_uids"""
+"""Tests cho fetch_all_uids (1-request, map ngược game_biz/region → model)"""
 
 import pytest
 from unittest.mock import patch
 
-from src.models.game import Game, REGIONS
-from src.api.redeem_fetch import fetch_uid, fetch_all_uids
+from src.models.game import Game
+from src.api.redeem_fetch import fetch_all_uids
 
 
-class TestFetchUid:
-    @pytest.mark.asyncio
-    async def test_success(self, mock_session, mock_account):
-        """Fetch UID thành công"""
-        mock_response = {
-            "success": True,
-            "data": {"retcode": 0, "data": {"list": [{"game_uid": "800123456"}]}},
-        }
-        with patch("src.api.redeem_fetch.safe_api_call", return_value=mock_response):
-            uid = await fetch_uid(mock_session, mock_account, Game.GENSHIN, "asia")
-
-        assert uid == "800123456"
-
-    @pytest.mark.asyncio
-    async def test_invalid_region(self, mock_session, mock_account):
-        """Region không tồn tại → None"""
-        uid = await fetch_uid(mock_session, mock_account, Game.GENSHIN, "invalid_region")
-        assert uid is None
-
-    @pytest.mark.asyncio
-    async def test_api_failure(self, mock_session, mock_account):
-        """API call thất bại → None"""
-        with patch("src.api.redeem_fetch.safe_api_call", return_value={"success": False, "message": "timeout"}):
-            uid = await fetch_uid(mock_session, mock_account, Game.STAR_RAIL, "asia")
-
-        assert uid is None
-
-    @pytest.mark.asyncio
-    async def test_retcode_not_zero(self, mock_session, mock_account):
-        """API trả retcode != 0 → None"""
-        mock_response = {"success": True, "data": {"retcode": -100, "message": "error"}}
-        with patch("src.api.redeem_fetch.safe_api_call", return_value=mock_response):
-            uid = await fetch_uid(mock_session, mock_account, Game.ZZZ, "asia")
-
-        assert uid is None
-
-    @pytest.mark.asyncio
-    async def test_empty_uid_list(self, mock_session, mock_account):
-        """UID list rỗng (chưa tạo nhân vật) → None"""
-        mock_response = {"success": True, "data": {"retcode": 0, "data": {"list": []}}}
-        with patch("src.api.redeem_fetch.safe_api_call", return_value=mock_response):
-            uid = await fetch_uid(mock_session, mock_account, Game.GENSHIN, "usa")
-
-        assert uid is None
-
-    @pytest.mark.asyncio
-    async def test_missing_game_uid_key(self, mock_session, mock_account):
-        """list[0] không có key game_uid → None"""
-        mock_response = {"success": True, "data": {"retcode": 0, "data": {"list": [{"other": "val"}]}}}
-        with patch("src.api.redeem_fetch.safe_api_call", return_value=mock_response):
-            uid = await fetch_uid(mock_session, mock_account, Game.GENSHIN, "asia")
-
-        assert uid is None
+def _api_result(roles: list[dict]) -> dict:
+    """Wrap roles list theo format safe_api_call: {success, data: {retcode, data: {list}}}."""
+    return {"success": True, "data": {"retcode": 0, "data": {"list": roles}}}
 
 
 class TestFetchAllUids:
     @pytest.mark.asyncio
-    async def test_all_games_all_regions(self, mock_session, mock_account):
-        """Fetch UIDs cho 3 games × 4 regions"""
-        async def mock_fetch(session, account, game, region):
-            if game == Game.GENSHIN and region == "asia":
-                return "800001"
-            if game == Game.STAR_RAIL and region == "euro":
-                return "130001"
-            return None
-
-        with patch("src.api.redeem_fetch.fetch_uid", side_effect=mock_fetch):
+    async def test_maps_real_response_to_games_and_regions(self, mock_session, mock_account):
+        """Response thật (SR asia + ZZZ asia) map đúng về Game + region_code."""
+        roles = [
+            {"game_biz": "hkrpg_global", "region": "prod_official_asia", "game_uid": "841565230"},
+            {"game_biz": "nap_global", "region": "prod_gf_jp", "game_uid": "1316327131"},
+        ]
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result(roles)):
             result = await fetch_all_uids(mock_session, mock_account)
 
-        assert result[Game.GENSHIN] == {"asia": "800001"}
-        assert result[Game.STAR_RAIL] == {"euro": "130001"}
-        assert result[Game.ZZZ] == {}
+        assert result[Game.STAR_RAIL] == {"asia": "841565230"}
+        assert result[Game.ZZZ] == {"asia": "1316327131"}
+        assert result[Game.GENSHIN] == {}
 
     @pytest.mark.asyncio
-    async def test_no_uids_found(self, mock_session, mock_account):
-        """Không tìm thấy UID nào"""
-        with patch("src.api.redeem_fetch.fetch_uid", return_value=None):
+    async def test_multiple_regions_same_game(self, mock_session, mock_account):
+        """1 game nhiều region → capture tất cả."""
+        roles = [
+            {"game_biz": "hk4e_global", "region": "os_asia", "game_uid": "800000001"},
+            {"game_biz": "hk4e_global", "region": "os_usa", "game_uid": "600000001"},
+            {"game_biz": "hk4e_global", "region": "os_euro", "game_uid": "700000001"},
+        ]
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result(roles)):
+            result = await fetch_all_uids(mock_session, mock_account)
+
+        assert result[Game.GENSHIN] == {
+            "asia": "800000001",
+            "usa": "600000001",
+            "euro": "700000001",
+        }
+
+    @pytest.mark.asyncio
+    async def test_makes_single_api_call(self, mock_session, mock_account):
+        """Tối ưu cốt lõi: CHỈ 1 request (trước đây 12)."""
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result([])) as mock_call:
+            await fetch_all_uids(mock_session, mock_account)
+
+        assert mock_call.call_count == 1
+        # Không gửi region/game_biz params (account-wide query)
+        _, kwargs = mock_call.call_args
+        assert kwargs.get("params") is None
+
+    @pytest.mark.asyncio
+    async def test_unsupported_game_biz_skipped(self, mock_session, mock_account):
+        """game_biz lạ (Honkai 3rd, Tears of Themis) → bỏ qua, không crash."""
+        roles = [
+            {"game_biz": "bh3_global", "region": "overseas01", "game_uid": "100000001"},
+            {"game_biz": "hkrpg_global", "region": "prod_official_asia", "game_uid": "841565230"},
+        ]
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result(roles)):
+            result = await fetch_all_uids(mock_session, mock_account)
+
+        assert result[Game.STAR_RAIL] == {"asia": "841565230"}
+        assert all(uids == {} for g, uids in result.items() if g is not Game.STAR_RAIL)
+
+    @pytest.mark.asyncio
+    async def test_unknown_region_skipped(self, mock_session, mock_account):
+        """region không có trong REGIONS map → bỏ qua role đó."""
+        roles = [
+            {"game_biz": "hkrpg_global", "region": "prod_official_unknown", "game_uid": "999999999"},
+        ]
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result(roles)):
             result = await fetch_all_uids(mock_session, mock_account)
 
         assert all(uids == {} for uids in result.values())
-        assert len(result) == 3  # vẫn có 3 games
 
     @pytest.mark.asyncio
-    async def test_correct_number_of_calls(self, mock_session, mock_account):
-        """Phải gọi fetch_uid đúng 3 games × 4 regions = 12 lần"""
-        with patch("src.api.redeem_fetch.fetch_uid", return_value=None) as mock_fetch:
-            await fetch_all_uids(mock_session, mock_account)
+    async def test_role_missing_uid_skipped(self, mock_session, mock_account):
+        """Role thiếu game_uid → bỏ qua."""
+        roles = [
+            {"game_biz": "hkrpg_global", "region": "prod_official_asia"},
+        ]
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result(roles)):
+            result = await fetch_all_uids(mock_session, mock_account)
 
-        total_regions = sum(len(regions) for regions in REGIONS.values())
-        assert mock_fetch.call_count == total_regions
+        assert result[Game.STAR_RAIL] == {}
+
+    @pytest.mark.asyncio
+    async def test_empty_list_no_characters(self, mock_session, mock_account):
+        """List rỗng (account chưa tạo nhân vật game nào) → tất cả rỗng."""
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=_api_result([])):
+            result = await fetch_all_uids(mock_session, mock_account)
+
+        assert all(uids == {} for uids in result.values())
+        assert len(result) == 3
+
+    @pytest.mark.asyncio
+    async def test_api_failure_returns_empty(self, mock_session, mock_account):
+        """API call thất bại → trả dict rỗng (không crash)."""
+        with patch("src.api.redeem_fetch.safe_api_call", return_value={"success": False, "message": "timeout"}):
+            result = await fetch_all_uids(mock_session, mock_account)
+
+        assert all(uids == {} for uids in result.values())
+        assert len(result) == 3
+
+    @pytest.mark.asyncio
+    async def test_retcode_not_zero_returns_empty(self, mock_session, mock_account):
+        """API retcode != 0 (cookie hết hạn) → trả dict rỗng."""
+        bad = {"success": True, "data": {"retcode": -100, "message": "Please login"}}
+        with patch("src.api.redeem_fetch.safe_api_call", return_value=bad):
+            result = await fetch_all_uids(mock_session, mock_account)
+
+        assert all(uids == {} for uids in result.values())

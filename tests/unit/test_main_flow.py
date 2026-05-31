@@ -72,6 +72,20 @@ class TestFetchAppData:
         assert cdkeys == good_cdkeys
         assert call_count == 2
 
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_all_accounts_empty(self, mock_session, mock_accounts):
+        """Khi mọi account đều trả empty CDKeys → trả dict rỗng (không crash)"""
+        empty_cdkeys = {game: [] for game in Game}
+        mock_uids = {game: {} for game in Game}
+
+        with (
+            patch("src.main.fetch_all_cdkeys", new_callable=AsyncMock, return_value=empty_cdkeys),
+            patch("src.main.fetch_all_uids", new_callable=AsyncMock, return_value=mock_uids),
+        ):
+            cdkeys, _ = await main_module.fetch_app_data(mock_session, mock_accounts)
+
+        assert cdkeys == {game: [] for game in Game}
+
 
 class TestRunRedeemForAll:
     @pytest.mark.asyncio

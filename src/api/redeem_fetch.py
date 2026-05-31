@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     import aiohttp
 
-from src.config import PAGE_NAME_HOME_GAME, URLS
+from src.config import ALL_ROLES_PAGE_INFO, PAGE_NAME_HOME, URLS
 from src.models.account import Account
-from src.models.game import Game, REGIONS
+from src.models.game import Game, GAME_BY_BIZ, REGION_CODE_BY_VALUE
 from src.api.client import safe_api_call
 from src.utils.helpers import build_rpc_headers
 
@@ -60,58 +60,42 @@ async def fetch_all_cdkeys(session: aiohttp.ClientSession, account: Account) -> 
     return dict(zip(Game, results))
 
 
-async def fetch_uid(
-    session: aiohttp.ClientSession, account: Account, game: Game, region_code: str
-) -> str | None:
-    """Fetch UID của player cho game+region cụ thể."""
-    game_info = game.value
-    region_value = REGIONS[game].get(region_code)
+async def fetch_all_uids(session: aiohttp.ClientSession, account: Account) -> dict[Game, dict[str, str]]:
+    """Fetch tất cả UIDs cho account trong 1 request.
 
-    if not region_value:
-        return None
+    getUserGameRolesByLtoken (không kèm region/game_biz) trả về MỌI game role
+    account đang sở hữu. Trước đây loop 3 games × N regions = nhiều request rỗng;
+    giờ chỉ 1 request rồi map ngược (game_biz → Game, region_value → region_code).
+
+    Returns:
+        dict[Game, dict[region_code, uid]] — game/region account không chơi sẽ rỗng.
+    """
+    uids: dict[Game, dict[str, str]] = {game: {} for game in Game}
 
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        game_info.get_page_info(PAGE_NAME_HOME_GAME),
-        page_name=PAGE_NAME_HOME_GAME,
+        ALL_ROLES_PAGE_INFO,
+        page_name=PAGE_NAME_HOME,
     )
-    params = {
-        "region": region_value,
-        "game_biz": game_info.game_biz,
-    }
-    result = await safe_api_call(session, URLS["fetch_uid"], headers, params=params)
+
+    result = await safe_api_call(session, URLS["fetch_uid"], headers)
 
     if not result["success"]:
-        return None
+        return uids
 
     data = result["data"]
     if data.get("retcode") != 0:
-        return None
+        return uids
 
-    uid_list = data.get("data", {}).get("list", [])
-    if uid_list:
-        return uid_list[0].get("game_uid")
+    for role in data.get("data", {}).get("list", []):
+        game = GAME_BY_BIZ.get(role.get("game_biz"))
+        if game is None:
+            continue  # Game không được hỗ trợ (vd Honkai 3rd, Tears of Themis)
 
-    return None
-
-
-async def fetch_all_uids(session: aiohttp.ClientSession, account: Account) -> dict[Game, dict[str, str]]:
-    """Fetch tất cả UIDs cho account (3 games x N regions)."""
-    uids: dict[Game, dict[str, str]] = {game: {} for game in Game}
-
-    tasks = []
-    task_info = []
-
-    for game in Game:
-        for region_code in REGIONS[game]:
-            tasks.append(fetch_uid(session, account, game, region_code))
-            task_info.append((game, region_code))
-
-    results = await asyncio.gather(*tasks)
-
-    for (game, region), uid in zip(task_info, results):
-        if uid:
-            uids[game][region] = uid
+        region_code = REGION_CODE_BY_VALUE.get((game, role.get("region")))
+        uid = role.get("game_uid")
+        if region_code and uid:
+            uids[game][region_code] = uid
 
     return uids

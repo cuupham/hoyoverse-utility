@@ -140,7 +140,7 @@ def display_redeem_results(results_map: dict[str, dict[Game, dict[str, dict[str,
             display_acc = acc_name if acc_name != prev_acc else ""
             row = f"{display_acc:<{acc_w}}{region:<{reg_w}}"
             for code in codes:
-                res = codes_res.get(code, {})
+                res: RedeemResult = codes_res.get(code) or RedeemResult(success=False, message="")
                 status = _short_redeem_status(res)
                 if len(status) > code_w - 2:
                     status = status[: code_w - 4] + ".."

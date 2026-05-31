@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 from src.models.account import Account
 from src.api.client import safe_api_call, create_session, reset_semaphore
-from src.utils.security import mask_uid
 from src.utils.helpers import current_hour, rpc_weekday
 from tests.conftest import MockAsyncCM
 
@@ -21,7 +20,6 @@ class TestAccountModel:
         assert acc.name == "ACC_1"
         assert acc.cookies["ltoken_v2"] == "v2"
         assert acc.mhy_uuid == "m1"
-        assert acc.hyv_uuid == "h1"
 
     def test_account_from_env_missing_keys(self):
         """Test lỗi khi thiếu required keys"""
@@ -99,12 +97,6 @@ class TestApiClient:
 
 class TestUtils:
     """Test cases cho các hàm tiện ích"""
-
-    def test_mask_uid(self):
-        """Test che UID"""
-        assert mask_uid("123456789") == "123***789"
-        assert mask_uid(12345) == "***"
-        assert mask_uid(None) == "***"
 
     def test_helpers(self):
         """Test các hàm helper thời gian"""

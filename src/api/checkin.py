@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     import aiohttp  # Chỉ import khi type checker chạy, không import runtime
 
 from src.config import (
-    COOKIE_CHECK_APP_VERSION,
     COOKIE_CHECK_PAGE_INFO,
     PAGE_NAME_HOME,
     PAGE_NAME_HOME_GAME,
@@ -50,7 +49,6 @@ async def check_cookie(session: aiohttp.ClientSession, account: Account) -> Cook
         PAGE_NAME_HOME,
         _cookie_check_source_info(account),
     )
-    headers["x-rpc-app_version"] = COOKIE_CHECK_APP_VERSION
 
     result = await safe_api_call(session, URLS["check_cookie"], headers)
 
@@ -106,8 +104,9 @@ async def do_checkin(session: aiohttp.ClientSession, account: Account, game: Gam
 
     if info["error"]:
         result = CheckinResult(success=False, day=None, message=info["error"])
-        if info.get("retcode") is not None:
-            result["retcode"] = info["retcode"]
+        retcode = info.get("retcode")
+        if retcode is not None:
+            result["retcode"] = retcode
         return result
 
     if info["is_sign"]:
@@ -117,14 +116,14 @@ async def do_checkin(session: aiohttp.ClientSession, account: Account, game: Gam
     headers = game_info.get_sign_headers(account, game, PAGE_NAME_HOME_GAME)
     json_data = game_info.get_sign_payload()
 
-    result = await safe_api_call(
+    sign_result = await safe_api_call(
         session, URLS["checkin_sign"][game_info.code], headers, json_data=json_data, method="POST"
     )
 
-    if not result["success"]:
-        return CheckinResult(success=False, day=None, message=result["message"])
+    if not sign_result["success"]:
+        return CheckinResult(success=False, day=None, message=sign_result["message"])
 
-    data = result["data"]
+    data = sign_result.get("data", {})
     if data.get("retcode") == 0:
         # Tối ưu: increment local thay vì gọi thêm get_checkin_info
         day = info["total_sign_day"] + 1

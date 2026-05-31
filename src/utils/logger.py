@@ -34,7 +34,9 @@ class ForceFlushStreamHandler(logging.StreamHandler):
 class ExecutionContext:
     """Singleton chứa context cho 1 lần chạy"""
 
-    _instance = None
+    _instance: "ExecutionContext | None" = None
+    trace_id: str
+    start_time: datetime
 
     def __new__(cls):
         if cls._instance is None:

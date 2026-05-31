@@ -64,6 +64,24 @@ async def run_checkin(
     return {acc.name: res for acc, res in zip(accounts, results)}
 
 
+async def _fetch_cdkeys_with_fallback(
+    session: aiohttp.ClientSession,
+    accounts: list[Account],
+) -> dict[Game, list[str]]:
+    """Fetch CDKeys (game-wide, không phụ thuộc account) với fallback tuần tự.
+
+    CDKeys là public event codes, giống nhau cho mọi account. Vì vậy chỉ cần
+    fetch từ 1 account; chỉ thử account kế tiếp nếu kết quả rỗng (cookie flaky).
+    Dừng ngay khi có codes → tránh 3×N requests dư thừa với N accounts.
+    """
+    best: dict[Game, list[str]] = {game: [] for game in Game}
+    for acc in accounts:
+        result = await fetch_all_cdkeys(session, acc)
+        if sum(len(codes) for codes in result.values()) > 0:
+            return result
+    return best
+
+
 async def fetch_app_data(
     session: aiohttp.ClientSession,
     accounts: list[Account],
@@ -72,21 +90,13 @@ async def fetch_app_data(
     if not accounts:
         return {game: [] for game in Game}, {}
 
-    # Fetch CDKeys và UIDs song song
-    # CDKeys: thử từng account cho đến khi có kết quả (fallback)
-    cdkeys_tasks = [fetch_all_cdkeys(session, acc) for acc in accounts]
-    uids_tasks = [fetch_all_uids(session, acc) for acc in accounts]
-
-    all_cdkeys_results, uids_results = await asyncio.gather(
-        asyncio.gather(*cdkeys_tasks),
-        asyncio.gather(*uids_tasks),
+    # CDKeys: game-wide → fetch tuần tự với fallback (dừng ở account đầu có codes)
+    # UIDs: per-account → fetch song song
+    # Hai nhóm chạy đồng thời để không mất parallelism.
+    cdkeys, uids_results = await asyncio.gather(
+        _fetch_cdkeys_with_fallback(session, accounts),
+        asyncio.gather(*(fetch_all_uids(session, acc) for acc in accounts)),
     )
-
-    # Chọn kết quả CDKeys tốt nhất (account có nhiều codes nhất)
-    cdkeys: dict[Game, list[str]] = {game: [] for game in Game}
-    for result in all_cdkeys_results:
-        if sum(len(codes) for codes in result.values()) > sum(len(codes) for codes in cdkeys.values()):
-            cdkeys = result
 
     account_uids = {acc.name: uids for acc, uids in zip(accounts, uids_results)}
     return cdkeys, account_uids
