@@ -1,0 +1,69 @@
+name: 🐛 Bug Report
+description: Report something broken — a failed run, an API change, a wrong result
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+        > 🔐 **Never paste cookies, account IDs or emails here.** Run logs already mask emails — attach them as-is.
+
+  - type: dropdown
+    id: game
+    attributes:
+      label: Which game is affected?
+      options:
+        - Genshin Impact
+        - "Honkai: Star Rail"
+        - Zenless Zone Zero
+        - Multiple / all
+        - Not game-specific
+    validations:
+      required: true
+
+  - type: input
+    id: region
+    attributes:
+      label: Account region(s)
+      description: e.g. asia, usa, eu, tw/hk/mo
+      placeholder: asia, usa
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log excerpt
+      description: From the Actions run. Verify no cookie/account data before pasting.
+      render: shell
+
+  - type: input
+    id: run-url
+    attributes:
+      label: Workflow run URL (optional)
+      placeholder: https://github.com/your-fork/hoyoverse-utility/actions/runs/...
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I confirm no cookie/account data is included in this report
+          required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for duplicates
+          required: true
