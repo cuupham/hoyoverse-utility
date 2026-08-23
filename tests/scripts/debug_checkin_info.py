@@ -109,8 +109,16 @@ async def debug_get_checkin_info():
                 result = await safe_api_call(session, url, headers, params=params)
 
                 if result["success"]:
-                    print("Response JSON:")
-                    print(json.dumps(result["data"], indent=2, ensure_ascii=False))
+                    data = result["data"]
+                    info = data.get("data", {})
+                    print(
+                        f"retcode: {data.get('retcode')} | is_sign: {info.get('is_sign')} "
+                        f"| total_sign_day: {info.get('total_sign_day')}"
+                    )
+                    if os.getenv("DEBUG"):
+                        # Full JSON chỉ in khi DEBUG=1 (tránh leak account info nơi log công khai)
+                        print("Response JSON:")
+                        print(json.dumps(data, indent=2, ensure_ascii=False))
                 else:
                     print(f"Request Failed: {result['message']}")
 

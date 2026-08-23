@@ -187,8 +187,7 @@ hoyoverse-utility/
 │   ├── SPEC.md                 # System Specification
 │   ├── architecture.md         # Kiến trúc hệ thống (file này)
 │   ├── api_contract.md         # API Contract
-│   ├── error_codes.md          # Error Handling & Codes
-│   └── raw.require.md          # Raw requirements gốc
+│   └── error_codes.md          # Error Handling & Codes
 ├── pytest.ini                  # Pytest config (root level)
 ├── requirements.txt
 └── README.md
