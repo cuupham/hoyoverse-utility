@@ -1,3 +1,5 @@
-aiohttp>=3.13.3
-fake-useragent>=2.2.0
-tzdata>=2024.1  # IANA tz database — required for ZoneInfo on Windows & minimal containers
+# Runtime deps — pinned chính xác để build tái lập được (app repo best practice)
+# Nâng cấp: kiểm tra release notes + chạy lại pip-audit trước khi bump phiên bản
+aiohttp==3.14.3
+fake-useragent==2.2.0
+tzdata==2026.3  # IANA tz database — required for ZoneInfo on Windows & minimal containers

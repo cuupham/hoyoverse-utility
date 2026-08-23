@@ -17,37 +17,27 @@ jobs:
     environment: live
     timeout-minutes: 30
 
+    # Secrets khai báo tường minh (least privilege) — KHÔNG dùng toJSON(secrets)
+    # để tránh đưa toàn bộ secrets (kể cả GITHUB_TOKEN) vào runtime.
+    # Secret chưa định nghĩa -> rỗng -> được code bỏ qua (get_accounts_from_env).
+    env:
+      ACC_1: ${{ secrets.ACC_1 }}
+      ACC_2: ${{ secrets.ACC_2 }}
+      ACC_3: ${{ secrets.ACC_3 }}
+      ACC_4: ${{ secrets.ACC_4 }}
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Python with pip cache
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.13'
           cache: 'pip'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Inject ACC secrets into env
-        env:
-          ALL_SECRETS: ${{ toJSON(secrets) }}
-        run: |
-          # Extract ACC_* keys from secrets JSON and export as env vars
-          # Uses heredoc syntax to safely handle cookies containing = or newlines
-          python3 -c "
-          import json, os, uuid
-          secrets = json.loads(os.environ['ALL_SECRETS'])
-          env_file = os.environ['GITHUB_ENV']
-          # Filter: only ACC_* keys (exclude GITHUB_TOKEN and other system secrets)
-          acc_secrets = {k: v for k, v in secrets.items() if k.startswith('ACC_') and v.strip()}
-          with open(env_file, 'a') as f:
-              for key, value in sorted(acc_secrets.items()):
-                  # Heredoc syntax prevents injection via = or newline in values
-                  delimiter = f'ghadelim_{uuid.uuid4().hex[:8]}'
-                  f.write(f'{key}<<{delimiter}\n{value}\n{delimiter}\n')
-          "
 
       - name: Run script
         run: python -m src.main
