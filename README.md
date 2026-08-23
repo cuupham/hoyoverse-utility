@@ -1,23 +1,51 @@
-# 🎮 HoYoLab Auto Tool
+# HoYoLab Auto Tool
+
+Automated daily check-in & redeem codes for **Genshin Impact**, **Honkai: Star Rail** and **Zenless Zone Zero** — free, multi-account, runs entirely in GitHub Actions.
+
+> ⚠️ **Disclaimer:** This is a personal-use automation tool. Automating game actions may violate the HoYoverse Terms of Service — use at your own risk.
+
+<p align="center">
+  <img src="assets/actions-run.png" alt="Real GitHub Actions run showing the check-in matrix and redeem results" width="720">
+</p>
+
+If this saves you time, a ⭐ star helps others find it.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game HoYoverse thông qua GitHub Actions.
+## Why this tool
 
-## ✨ Tính năng
+- **Parallel engine** — semaphore-based concurrency across accounts × games × regions; a full check-in + redeem run finishes in ~1.5 s
+- **Multi-account native** — add `ACC_1` … `ACC_4` secrets and you're done; no config files to edit
+- **Cross-region smart skip** — once a code fails in one region, it's auto-skipped downstream to save API budget
+- **All 3 games, including Zenless Zone Zero** — some older helpers never added ZZZ
+- **Fork-and-forget** — zero local runtime; GitHub Actions runs it daily
+- **Tested** — unit + integration suite with a CI coverage gate on every push
 
-| Tính năng | Mô tả |
-|-----------|-------|
-| 🎁 **Auto Check-in** | Điểm danh hàng ngày nhận phần thưởng |
-| 🔑 **Auto Redeem** | Tự động nhập mã code mới nhất |
-| 🔄 **Multi-Account** | Hỗ trợ nhiều tài khoản |
-| ⚡ **Cross-region Skip** | Tự động bỏ qua code hết hạn |
-| 🚀 **High Performance** | Tối ưu tốc độ với kiến trúc song song (Parallel) |
-| 🛡️ **Stealth Mode** | Header động tránh bị phát hiện |
+The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed from GitHub, leaving fewer maintained options — this project aims to fill that gap with a modern, tested codebase.
 
-## 🎯 Game được hỗ trợ
+| | This tool | Typical older helper | Manual |
+|---|---|---|---|
+| Games incl. ZZZ | ✅ | varies | — |
+| Multi-account | ✅ native `ACC_*` | config file | — |
+| Parallel redeem | ✅ semaphore | sequential | — |
+| Setup effort | fork + secrets | fork + config edit | daily login |
+
+## Quick Start
+
+1. **Fork** this repository (top-right on GitHub).
+2. **Copy your HoYoLAB cookie:**
+   1. Log in at [HoYoLab](https://www.hoyolab.com), open avatar → *Personal Homepage*
+   2. DevTools (F12) → *Network* tab → find request `getGameRecordCard?uid=...`
+   3. Copy the full `Cookie:` header value
+3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2`+ for more accounts.
+4. **Run:** *Actions* → *HoYo Flow* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**.
+5. **Check the report tables** in the run log — done in seconds.
+
+> 🔐 Your cookie lives only in encrypted [GitHub Secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) and is sent exclusively to official HoYoLAB API endpoints. Never paste cookies into issues or logs.
+
+## Supported games
 
 | Game | Check-in | Redeem |
 |------|----------|--------|
@@ -25,267 +53,188 @@ Tự động **điểm danh hàng ngày** và **nhập redeem code** cho 3 game 
 | Honkai: Star Rail | ✅ | ✅ |
 | Zenless Zone Zero | ✅ | ✅ |
 
-## 🏗️ Kiến trúc hệ thống
+## Example output
+
+<details>
+<summary>Example run log (click to expand; statuses translated from runtime Vietnamese)</summary>
+
+```
+--- ACCOUNTS ---
+[✓] ACC_1: Valid (u****@gmail.com)
+[✓] ACC_2: Valid (c****@gmail.com)
+
+--- CHECK-IN ---
+Account   Genshin Impact     Honkai: Star Rail   Zenless Zone Zero
+ACC_1     ✓ Day 15           ✓ Already claimed   ✓ Already claimed
+ACC_2     ✓ Already claimed  ✓ Already claimed   — No character yet
+
+--- REDEEM CODE ---
+Genshin Impact: 3 codes [ABC, DEF, XYZ]
+Account   Region  ABC           DEF           XYZ
+ACC_1     asia    ✓ Success     ✓ Success     ⏭ Skip
+ACC_2     asia    ✓ Success     ✓ Success     ⏭ Skip
+          usa     ✓ Success     ✓ Success     ⏭ Skip
+
+DONE - 1.5s
+```
+
+</details>
+
+## How it works
 
 ```mermaid
 flowchart TD
-    A[🚀 Khởi động] --> B[📖 Đọc ACC_* từ Env]
-    B --> C{Account?}
-    C -->|Không| X[❌ Thoát]
-    C -->|Có| D[✅ Validate Cookie]
+    A[🚀 Start] --> B[📖 Read ACC_* from Env]
+    B --> C{Accounts found?}
+    C -->|No| X[❌ Exit]
+    C -->|Yes| D[✅ Validate Cookies]
     D --> E{Valid?}
-    E -->|Không| Y[❌ Báo lỗi]
-    E -->|Có| F[⚡ Song song hóa]
-    
+    E -->|No| Y[❌ Report Error]
+    E -->|Yes| F[⚡ Parallelize]
+
     F --> G1[🎁 Check-in]
     F --> G2[🔑 Fetch CDKeys]
     F --> G3[🔑 Fetch UIDs]
-    
-    G1 --> H1[📊 Gom kết quả]
-    G2 --> H2[📊 Gom kết quả]
-    G3 --> H2
-    
-    H1 --> I[📋 Hiển thị báo cáo]
-    H2 --> I
-    
-    I --> J[✅ Hoàn thành]
+
+    G1 --> H[📊 Collect Results]
+    G2 --> H
+    G3 --> H
+
+    H --> I[📋 Display Report]
+    I --> J[✅ Done]
 ```
 
-## 🚀 Bắt đầu nhanh
+## Advanced configuration
 
-### 1. Fork Repository
+<details>
+<summary>Environment variables & tuning</summary>
 
-Click **Fork** ở góc phải trên GitHub.
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ACC_*` | Cookie strings (`ACC_1`, `ACC_2`, …) | required |
+| `DEBUG` | Enable debug-level logging | `""` |
 
-### 2. Lấy Cookie
+Tunables in [`src/config.py`](src/config.py):
 
-1. Truy cập [HoYoLab](https://www.hoyolab.com) và **đăng nhập**
-2. Click vào avatar → **Personal Homepage**
-3. Mở **DevTools** (F12) → Tab **Network**
-4. Tìm request: `getGameRecordCard?uid=...`
-5. Click vào request → **Headers** → Copy giá trị **Cookie**
-
+```python
+SEMAPHORE_LIMIT = 20      # max parallel requests
+REDEEM_DELAY = 5          # seconds between redeems
+REQUEST_TIMEOUT = 30      # per-request timeout (s)
+MIN_REQUEST_TIMEOUT = 15  # floor timeout per attempt
+CONNECT_TIMEOUT = 10      # connect timeout (s)
+MAX_RETRIES = 3           # retries on failure
+RATE_LIMIT_DELAY = 5      # backoff on HTTP 429 (s)
+HEADER_WIDTH = 50         # display header width
 ```
-Cookie: mi18nLang=en-us; _MHYUUID=xxx; cookie_token_v2=xxx; account_id_v2=xxx; ...
+
+</details>
+
+<details>
+<summary>Troubleshooting</summary>
+
+**Invalid cookie**
 ```
+[✗] ACC_1: Missing required cookies: ['account_id_v2']
+```
+Re-grab the cookie from HoYoLab and make sure it contains `_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`.
 
-> ⚠️ **Lưu ý:** Cookie này sẽ dán vào GitHub Secrets - KHÔNG commit vào code!
+**No accounts found**
+```
+ERROR: No accounts found in environment variables!
+```
+Check that secret names match exactly (`ACC_1`, `ACC_2`, …) and re-run the workflow manually.
 
-### 3. Thêm Secrets
+**Rate limited (429)**
+Wait and re-run later; reduce account count if it persists; limits reset after ~24 h.
 
-1. Vào repo đã fork → **Settings** → **Secrets and variables** → **Actions**
-2. Click **New repository secret**
-3. **Name**: `ACC_1` (hoặc `ACC_2`, `ACC_3`,...)
-4. **Value**: Dán cookie string vừa copy
-5. Lặp lại cho mỗi account
+**Codes keep getting skipped**
+`⏭ Skip` means the code is expired/invalid — it was already rejected in an earlier region and is skipped downstream to save requests. New codes arrive via livestreams/events.
 
-> 💡 GitHub Actions sẽ tự nhận diện các biến `ACC_*` khi chạy!
+</details>
 
-### 4. Chạy Workflow
-
-- **Tự động**: Mỗi ngày lúc **4:45 AM (UTC+7)**
-- **Thủ công**: **Actions** → **Daily Run** → **Run workflow**
-
-## 📁 Cấu trúc dự án
+<details>
+<summary>Project structure</summary>
 
 ```
 hoyoverse-utility/
 ├── .github/workflows/
-│   ├── hoyo-flow.yml          # GitHub Actions workflow (daily run)
-│   └── test.yml               # CI: chạy tests + coverage trên mỗi push/PR
+│   ├── hoyo-flow.yml          # Daily-run workflow
+│   └── test.yml               # CI: tests + coverage gate
 ├── src/
-│   ├── main.py                # Entry point - orchestration flow
-│   ├── config.py              # Cấu hình tập trung (URLs, RPC, SYSTEM_MESSAGES, settings)
-│   ├── constants.py           # Hằng dùng chung (JSON_SEPARATORS, DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO)
+│   ├── main.py                # Entry point / orchestration
+│   ├── config.py              # Central config
+│   ├── constants.py           # Shared constants
 │   ├── api/
-│   │   ├── client.py          # HTTP client với retry, semaphore & anti-detection
-│   │   ├── checkin.py         # API điểm danh (check info + sign)
-│   │   ├── redeem_fetch.py    # Fetch CDKeys & UIDs (read-only APIs)
-│   │   └── redeem_exchange.py # Exchange (nhập) redeem codes (write APIs)
-│   ├── models/
-│   │   ├── account.py         # Model tài khoản (immutable dataclass)
-│   │   ├── game.py            # Model game, GameInfo, REGIONS mapping
-│   │   └── types.py           # TypedDict definitions cho API return types
-│   └── utils/
-│       ├── display.py         # UI formatting & display logic (tables, reports)
-│       ├── headers.py         # Dynamic User-Agent (fake-useragent)
-│       ├── helpers.py         # Hàm tiện ích (build_rpc_headers, current_hour, ...)
-│       └── logger.py          # Logging với trace_id & force flush
-├── tests/                     # Test suite
-│   ├── auth/                  # Các file authentication local (không bị push lên repo)
-│   ├── api-health/            # API health check scripts
-│   ├── integration/           # Chạy End-to-end integration tests
-│   ├── scripts/               # Script hỗ trợ Debug API
-│   ├── unit/                  # Unit tests cho từng module
-│   └── conftest.py            # Fixtures & Mock data chung
-├── requirements/              # Chứa SPEC và Architecture mô tả nghiệp vụ Tool
-├── pytest.ini                 # Pytest config (root level)
-├── requirements.txt           # Product dependencies (Không bao gồm Pytest libs)
-└── README.md                  # File này
+│   │   ├── client.py          # HTTP client (retry, semaphore, anti-detection)
+│   │   ├── checkin.py         # Check-in APIs
+│   │   ├── redeem_fetch.py    # CDKey & UID fetching (read-only)
+│   │   └── redeem_exchange.py # Code redemption (write)
+│   ├── models/                # Account / game models, typed API results
+│   └── utils/                 # Display, headers, logging, helpers
+├── tests/                     # Unit + integration + API-health suites
+├── requirements/              # SPEC & architecture docs
+└── pytest.ini
 ```
 
-## 🔧 Phát triển local
+</details>
+
+## Local development
 
 ```bash
-# Clone
-git clone https://github.com/your-username/hoyoverse-utility.git
+git clone https://github.com/cuupham/hoyoverse-utility.git
 cd hoyoverse-utility
 
-# Tạo virtual environment
 python -m venv .venv
-.\.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Linux/Mac
+.\.venv\Scripts\activate        # Windows
+# source .venv/bin/activate     # Linux/Mac
 
-# Cài đặt dependencies (Core)
 pip install -r requirements.txt
 
-# Cấu hình cookie cho local test
-# 1. Copy tests/auth/cookies.ps1.example -> tests/auth/.env.ps1
-# 2. Điền cookies vào tests/auth/.env.ps1
-# 3. Chạy file:
+# Optional: run against real accounts locally
+# copy tests/auth/cookies.ps1.example -> tests/auth/.env.ps1, fill in cookies
 .\tests\auth\.env.ps1
-
-# Chạy tool
 python -m src.main
 
-# Chạy test (Mock data - không cần cookie)
+# Tests (mock data, no cookie needed)
 pip install pytest pytest-asyncio pytest-cov
-python -m pytest
-
-# Chạy test với coverage report
 python -m pytest --cov=src --cov-report=term-missing
 
-# Chạy API health tests (cần cookie thật)
-# Yêu cầu: set env vars HOYO_COOKIE_1 (xem tests/api-health/conftest.py)
+# Live API health tests (need real cookies: ACC_1 env var or tests/auth/.env.ps1)
 python -m pytest -m live -v
 ```
 
-## 📊 Ví dụ output
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 
-```
-20/01/2026 07:50:58 [INFO] ==================================================
-20/01/2026 07:50:58 [INFO] HOYOLAB AUTO TOOL
-20/01/2026 07:50:58 [INFO] Time: 2026-01-20 07:50:58
-20/01/2026 07:50:58 [INFO] Trace: a83cd482
-20/01/2026 07:50:58 [INFO] ==================================================
-20/01/2026 07:50:58 [INFO]
-20/01/2026 07:50:58 [INFO] --- KIỂM TRA ACCOUNTS ---
-20/01/2026 07:50:58 [INFO] [✓] ACC_1: Hợp lệ (u****@gmail.com)
-20/01/2026 07:50:58 [INFO] [✓] ACC_2: Hợp lệ (c****@gmail.com)
-20/01/2026 07:50:58 [INFO]
-20/01/2026 07:50:58 [INFO] Tổng: 2/2 accounts hợp lệ
-20/01/2026 07:50:58 [INFO]
-20/01/2026 07:50:59 [INFO] --- CHECK-IN ---
-20/01/2026 07:50:59 [INFO] Account   Genshin Impact        Honkai: Star Rail     Zenless Zone Zero
-20/01/2026 07:50:59 [INFO] ACC_1     ✓ Ngày 15             ✓ Đã điểm danh        ✓ Đã điểm danh
-20/01/2026 07:50:59 [INFO] ACC_2     ✓ Đã điểm danh        ✓ Đã điểm danh        — Chưa tạo nhân vật
-20/01/2026 07:50:59 [INFO]
-20/01/2026 07:50:59 [INFO] --- REDEEM CODE ---
-20/01/2026 07:50:59 [INFO] CDKeys:
-20/01/2026 07:50:59 [INFO]   Genshin Impact: 3 codes [ABC, DEF, XYZ]
-20/01/2026 07:50:59 [INFO]   Honkai: Star Rail: Không có codes
-20/01/2026 07:50:59 [INFO]   Zenless Zone Zero: Không có codes
-20/01/2026 07:50:59 [INFO] UIDs:
-20/01/2026 07:50:59 [INFO]   ACC_1: Genshin Impact(asia)
-20/01/2026 07:50:59 [INFO]   ACC_2: Genshin Impact(asia, usa)
-20/01/2026 07:50:59 [INFO]
-20/01/2026 07:50:59 [INFO] [Genshin Impact]
-20/01/2026 07:50:59 [INFO] Account   Region  ABC             DEF             XYZ
-20/01/2026 07:50:59 [INFO] ACC_1     asia    ✓ Thành công    ✓ Thành công    ⏭ Skip
-20/01/2026 07:50:59 [INFO] ACC_2     asia    ✓ Thành công    ✓ Thành công    ⏭ Skip
-20/01/2026 07:50:59 [INFO]           usa     ✓ Thành công    ✓ Thành công    ⏭ Skip
-20/01/2026 07:50:59 [INFO]
-20/01/2026 07:51:00 [INFO] ==================================================
-20/01/2026 07:51:00 [INFO] DONE - 1.5s
-20/01/2026 07:51:00 [INFO] ==================================================
-```
+## FAQ
 
-## ⚙️ Cấu hình nâng cao
+<details>
+<summary><b>Is my cookie safe?</b></summary>
 
-### Environment Variables
+It's stored in GitHub's encrypted Secrets service, injected only into your own workflow runs, and transmitted only to official HoYoLAB endpoints. Run logs mask emails (`u****@gmail.com`). Still, treat cookies like passwords: rotate them periodically and never commit them.
+</details>
 
-| Variable | Mô tả | Mặc định |
-|----------|-------|----------|
-| `ACC_*` | Cookie strings (ACC_1, ACC_2,...) | Bắt buộc |
-| `DEBUG` | Bật debug mode (hiển thị DEBUG level logs) | `""` |
+<details>
+<summary><b>Will I get banned?</b></summary>
 
-### Settings (trong [`src/config.py`](src/config.py))
+Honestly — maybe. Automating check-ins/redeems sits in a gray zone of the HoYoverse Terms of Service. Many people have used such tools without issues, but there is no guarantee, and HoYoverse could tighten enforcement at any time. Use it on accounts you're willing to risk.
+</details>
 
-```python
-SEMAPHORE_LIMIT = 20      # Số request song song tối đa
-REDEEM_DELAY = 5          # Giây giữa mỗi lần nhập code
-REQUEST_TIMEOUT = 30      # Timeout request (giây)
-MIN_REQUEST_TIMEOUT = 15  # Floor timeout per attempt (tránh timeout quá sớm)
-CONNECT_TIMEOUT = 10      # Timeout kết nối (giây)
-MAX_RETRIES = 3           # Số lần thử lại khi lỗi
-RATE_LIMIT_DELAY = 5      # Giây chờ khi bị rate limit (429)
-HEADER_WIDTH = 50         # Số ký tự "=" cho header/footer (display)
-```
+<details>
+<summary><b>How is this different from other helpers?</b></summary>
 
-## ❓ Troubleshooting
+See the comparison table above: native multi-account via secrets (no config editing), semaphore-based parallel execution (~1.5 s full runs), cross-region redeem skip, and ZZZ support out of the box — plus a tested, CI-gated codebase.
+</details>
 
-### Cookie không hợp lệ
+<details>
+<summary><b>HoYo changed something and it broke!</b></summary>
 
-```
-[✗] ACC_1: Missing required cookies: ['account_id_v2']
-```
+HoYoLAB APIs change without notice. Check [Issues](../../issues) for existing reports, and open one if new — include the failing workflow log (with cookies removed).
+</details>
 
-**Giải pháp:**
-1. Lấy lại cookie từ HoYoLab (xem hướng dẫn trên)
-2. Đảm bảo cookie có đầy đủ các trường: `_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`
+## License
 
-### Không tìm thấy account
-
-```
-ERROR: Không tìm thấy account nào trong environment variables!
-```
-
-**Giải pháp:**
-1. Kiểm tra GitHub Secrets đã thêm `ACC_1` chưa
-2. Verify tên secret khớp với env var (ACC_1, ACC_2,...)
-3. Chạy lại workflow thủ công
-
-### Lỗi rate limit
-
-```
-[ERROR] Request failed: Rate limited (429)
-```
-
-**Giải pháp:**
-1. Đợi một thời gian rồi chạy lại
-2. Giảm số lượng account
-3. Đợi 24h để reset limit
-
-### Code bị skip liên tục
-
-```
-ABC: ⏭ Đã skip (expired/invalid từ region trước)
-```
-
-**Giải pháp:**
-- Code đã hết hạn hoặc không hợp lệ (tool tự skip ở các region sau để tiết kiệm request)
-- Chờ code mới từ livestream/event
-
-## 📝 Changelog
-
-**Cập nhật gần đây:**
-
-- **DRY (trước đó):** RPC headers, page names, message skip trong `config.py` / `constants.py`; ZZZ Stealth Mode; Dynamic Page Info.
-
-## 🔐 Bảo mật
-
-> **QUAN TRỌNG:**
-> - **KHÔNG** bao giờ commit cookies vào repository!
-> - Cookies có giá trị ~1 năm, sau đó cần lấy lại
-> - Delay 5s giữa mỗi lần nhập code để tránh rate limit
-> - API có thể thay đổi từ phía HoYoverse bất cứ lúc nào
-
-## 📝 License
-
-MIT License - Chỉ dành cho mục đích cá nhân.
+[MIT](LICENSE) — personal use at your own risk.
 
 ---
 
-<p align="center">
-  Made with ❤️ for Travelers, Trailblazers & Proxies
-</p>
+<p align="center">Made with ❤️ for Travelers, Trailblazers & Proxies</p>

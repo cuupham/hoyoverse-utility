@@ -1,0 +1,35 @@
+name: ✨ Feature Request
+description: Suggest an improvement — start with the problem you're facing
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Problem first, solution second.** Also note: this project deliberately avoids automation features that increase ToS risk (see [CONTRIBUTING](../../blob/main/CONTRIBUTING.md)).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the friction or gap, not the solution yet.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like to happen?
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      options:
+        - label: I confirm no cookie/account data is included in this request
+          required: true
