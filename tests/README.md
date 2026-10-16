@@ -1,57 +1,38 @@
-# tests - Public Testing Environment
+# Tests
 
-Thư mục này chứa các file logic testing công khai của project.
-**LƯU Ý:** Thông tin nhạy cảm (cookies) phải được để ở file `.env.ps1` tại thư mục gốc và file này đã được chặn bởi `.gitignore`.
+The test suite is split by purpose:
 
-## Cấu trúc
+- `tests/unit/` covers models, API wrappers, orchestration, display, and
+  session behavior with mocked responses.
+- `tests/integration/` covers the mocked application flow across modules.
+- `tests/api_health/` contains live, read-only checks for cookie validation,
+  check-in info, CDKey fetch, UID fetch, and response shape. It does not submit
+  a sign or redeem request.
+- `tests/auth/cookies.ps1.example` is the local cookie template. Copy it to
+  `tests/auth/.env.ps1`; the fixture reads that file only when `ACC_*`
+  environment variables are not already set.
 
-```
-project_root/
-├── .env.ps1              # [BÍ MẬT] PowerShell set cookies (tạo từ file template)
-├── tests/                # [CÔNG KHAI]
-│   ├── __init__.py       # Package init
-│   ├── conftest.py       # Pytest fixtures & mock data
-│   ├── test_redeem.py    # Test cases cho redeem functionality
-│   ├── test_core.py      # Test models & core logic
-│   ├── pytest.ini        # Pytest configuration
-│   └── cookies.ps1.example # Template file hướng dẫn set cookies
-```
+Do not commit `.env.ps1` or cookie values. `tests/support/accounts.py` owns local test/debug loading; `Account.from_cookie_string()` owns cookie validation. Loading is lazy, so default mocked tests do not read credentials. Invalid configured credentials fail explicitly instead of silently falling back to a different account.
 
-## Hướng dẫn sử dụng
+Install developer tools with `pip install -r requirements-dev.txt`. Runtime pins are inherited from the root runtime manifest. CI also runs Black, Ruff and strict source mypy on Python 3.10/3.13.
 
-### 1. Set cookies để test với API thực
-Để chạy test hoặc tool với dữ liệu thật, bạn cần tạo file `.env.ps1`:
-1. Copy `tests/cookies.ps1.example` ra thư mục gốc và đổi tên thành `.env.ps1`.
-2. Điền cookie của bạn vào.
-3. Chạy file bằng PowerShell:
+Run mocked tests without credentials:
+
 ```powershell
-. .\.env.ps1
+python -m pytest tests/unit/ tests/integration/
 ```
 
-### 2. Chạy unit tests (Mock data)
-Bộ test này sử dụng mock data nên có thể chạy mà không cần cookie thật:
+Run read-only live checks with credentials loaded in the current PowerShell
+session or from `tests/auth/.env.ps1`:
+
 ```powershell
-# Cài pytest
-pip install pytest pytest-asyncio
-
-# Chạy toàn bộ tests
-pytest tests -v
-
-# Chạy từng file test
-pytest tests/test_redeem.py -v
+python -m pytest tests/api_health/ -m live -v
 ```
 
-## Mock Data có sẵn
+The live suite may skip when no account is available. A live check confirms the
+observed read response and wrapper contract; it is not proof of successful
+check-in or redemption writes.
 
-| Fixture | Mô tả |
-|---------|-------|
-| `mock_account` | 1 account mock |
-| `mock_accounts` | List 2 accounts |
-| `mock_cdkeys_all_games` | CDKeys cho 3 games |
-| `mock_cdkeys_partial` | CDKeys cho 1 số games |
-| `mock_cdkeys_empty` | Không có codes |
-| `mock_cdkeys_invalid` | Codes không hợp lệ |
-| `mock_uids_all_regions` | UIDs cho tất cả regions |
-| `mock_uids_partial` | UIDs cho 1 số regions |
-| `mock_uids_empty` | Không có UIDs |
-| `mock_redeem_*` | Các API responses |
+The debug script shares the live loader and production read wrappers. `python tests/scripts/debug_checkin_info.py --help` works without credentials and from another working directory. Its output contains region names and check-in state, never raw cookies, account IDs, nicknames or UIDs.
+
+Unit files are grouped by owner: accounts, client, request builder/browser headers, metadata, environment/timekeeping, check-in, fetch, redemption, display, logging and orchestration. `test_provider_contracts.py` exercises provider-shaped fixtures; it is not a live provider certification. `test_operation_outcomes.py` covers error classification and run status.

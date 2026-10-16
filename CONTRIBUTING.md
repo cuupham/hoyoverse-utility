@@ -20,11 +20,13 @@ Full instructions live in the [README](README.md#local-development) — they mus
 ```bash
 python -m venv .venv
 .\.venv\Scripts\activate        # Windows
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # Tests use mock data — no cookie required
-pip install pytest pytest-asyncio pytest-cov
-python -m pytest --cov=src --cov-report=term-missing
+python -m black --check src tests
+python -m ruff check src tests
+python -m mypy src
+python -m pytest tests/unit tests/integration --cov=src --cov-report=term-missing --cov-fail-under=95
 ```
 
 Live API-health tests additionally need real cookies — set `ACC_1` in your environment or create `tests/auth/.env.ps1`. Never commit yours (see [`tests/auth/cookies.ps1.example`](tests/auth/cookies.ps1.example)).
@@ -32,12 +34,14 @@ Live API-health tests additionally need real cookies — set `ACC_1` in your env
 ## Code style
 
 - Format with **black** (`pip install black; black src tests`)
-- **Type hints required** on all functions (matches existing codebase)
-- Keep modules small and focused; shared constants go in `src/constants.py`, config in `src/config.py`
+- Runtime code must pass strict source typechecking; keep required TypedDict fields compatible with Python 3.10.
+- Keep modules small and focused. Game metadata belongs in `src/models/game.py`, shared results in `src/models/results.py`, request construction in `src/api/request_builder.py`, and settings/messages in `src/config.py`.
+- Runtime dependency pins belong only in `requirements.txt`; `requirements-dev.txt` references that file.
+- Keep provider wire keys and ACC_* names stable; internal names use snake_case. Tests should describe the behavior they assert, not coverage targets or historical audit labels.
 
 ## Pull requests
 
-Use the PR template. CI must pass (tests + coverage gate). One logical change per PR keeps review fast.
+Use the PR template. CI must pass formatting, lint, strict source typing, tests and the coverage gate on Python 3.10 and 3.13. One logical change per PR keeps review fast.
 
 ## Reporting issues
 

@@ -46,6 +46,13 @@ Dự án đã được phân tách thành các tài liệu nhỏ để dễ tra 
   - Star Rail: 3 codes  
   - ZZZ: 1 code
 - **Rate limit:** Delay **5 giây** giữa mỗi lần nhập code (cùng account, cùng server)
+- **Fetch result:** Kết quả rỗng thành công phải khác lỗi provider/transport/schema;
+  fallback CDKey chạy tuần tự theo account cho từng game.
+- **Run status:** Lỗi fetch không được khôi phục hoặc có code nhưng không có UID
+  sẽ được báo rõ và kết thúc với exit code 1. Account validation failures,
+  check-in failures/challenges and redemption transport/schema errors also fail the run
+  after independent work finishes. Known no-character and provider redemption
+  rejections remain separate; see [error policy](error_codes.md).
 
 ---
 
@@ -63,30 +70,9 @@ secrets:
   ACC_4: "<cookie_string_4>"
 ```
 
-### 2.2. Workflow Environment Variables
+### 2.2. Workflow environment variables
 
-Secrets được inject tự động qua `toJSON(secrets)` với heredoc syntax (chống injection):
-
-```yaml
-- name: Inject ACC secrets into env
-  env:
-    ALL_SECRETS: ${{ toJSON(secrets) }}
-  run: |
-    python3 -c "
-    import json, os, uuid
-    secrets = json.loads(os.environ['ALL_SECRETS'])
-    env_file = os.environ['GITHUB_ENV']
-    acc_secrets = {k: v for k, v in secrets.items() if k.startswith('ACC_') and v.strip()}
-    with open(env_file, 'a') as f:
-        for key, value in sorted(acc_secrets.items()):
-            delimiter = f'ghadelim_{uuid.uuid4().hex[:8]}'
-            f.write(f'{key}<<{delimiter}\n{value}\n{delimiter}\n')
-    "
-```
-
-> [!NOTE]
-> Chỉ filter `ACC_*` keys — không dump `GITHUB_TOKEN` hay secrets khác vào env.
-> Heredoc syntax ngăn cookie chứa `=` hoặc newline inject env vars.
+The [daily workflow](../.github/workflows/hoyo-flow.yml) explicitly exposes ACC_1 through ACC_4 from repository/environment secrets. It does not export every secret through toJSON. Add a workflow mapping explicitly if more accounts are required in Actions; local runs discover all nonempty ACC_* values.
 
 ### 2.3. Cookie Format
 
@@ -98,131 +84,13 @@ mi18nLang=en-us; _HYVUUID=xxx; _MHYUUID=xxx; cookie_token_v2=xxx; account_mid_v2
 - `_MHYUUID` → Dùng cho header `x-rpc-device_id`
 - `_HYVUUID` → Dùng cho một số API sign
 
-### 2.4. Account Data Model
+### 2.4. Account model
 
-Cookie được lưu dưới dạng string trong secrets, nhưng cần parse ra để truy xuất các giá trị riêng lẻ.
+[Account](../src/models/account.py) stores raw cookies privately for request headers and a read-only parsed mapping for required fields. Account.from_cookie_string parses supplied text; it does not read environment variables. Blank credentials and duplicate keys are rejected. Frozen attributes plus MappingProxyType prevent normal mutation; credentials are excluded from repr. This does not make Account a supported dictionary key.
 
-**Giải pháp: Dùng dataclass giữ cả 2 dạng**
+## 3. GitHub Actions
 
-```python
-from dataclasses import dataclass
-
-# Required keys để đảm bảo cookie hoạt động
-REQUIRED_COOKIE_KEYS = ['_MHYUUID', '_HYVUUID', 'cookie_token_v2', 'account_id_v2']
-
-@dataclass(frozen=True)  # Immutable - không thể thay đổi sau khi tạo
-class Account:
-    name: str                    # "ACC_1", "ACC_2", ...
-    cookie_str: str              # Raw cookie string cho HTTP requests
-    cookies: dict[str, str]      # Parsed dict để truy xuất values
-    
-    @classmethod
-    def from_env(cls, name: str, cookie_str: str) -> "Account":
-        """Parse cookie string thành Account object
-        
-        Raises:
-            ValueError: Nếu cookie rỗng hoặc thiếu required keys
-        """
-        # Kiểm tra cookie rỗng
-        if not cookie_str or not cookie_str.strip():
-            raise ValueError(f"{name}: Cookie string is empty")
-        
-        # Parse cookie string
-        cookies: dict[str, str] = {}
-        for pair in cookie_str.split(';'):
-            pair = pair.strip()
-            if '=' in pair:
-                key, value = pair.split('=', 1)
-                cookies[key.strip()] = value.strip()
-        
-        # Kiểm tra required keys
-        missing = [k for k in REQUIRED_COOKIE_KEYS if k not in cookies]
-        if missing:
-            raise ValueError(f"{name}: Missing required cookies: {missing}")
-        
-        return cls(name=name, cookie_str=cookie_str, cookies=cookies)
-    
-    @property
-    def mhy_uuid(self) -> str:
-        """Trả về _MHYUUID cho x-rpc-device_id"""
-        return self.cookies.get('_MHYUUID', '')
-```
-
-> [!NOTE]
-> **frozen=True** nghĩa là Account không thể thay đổi sau khi tạo:
-> - ✅ Thread-safe
-> - ✅ Có thể dùng làm dict key
-> - ✅ Tránh bug do vô tình sửa data
-
-**Cách sử dụng:**
-
-```python
-# Khởi tạo từ environment variable
-acc = Account.from_env("ACC_1", os.environ["ACC_1"])
-
-# Dùng cho HTTP request
-headers = {
-    "Cookie": acc.cookie_str,       # Raw string
-    "x-rpc-device_id": acc.mhy_uuid,  # Parsed value
-}
-
-# Truy cập bất kỳ giá trị nào
-ltuid = acc.cookies.get("ltuid_v2")
-```
-
----
-
-## 3. GitHub Actions Workflow (Đề xuất)
-
-```yaml
-name: HoYo Flow
-
-on:
-  schedule:
-    - cron: '45 21 * * *'
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  core_flow:
-    runs-on: ubuntu-latest
-    environment: live
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up Python with pip cache
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Inject ACC secrets into env
-        env:
-          ALL_SECRETS: ${{ toJSON(secrets) }}
-        run: |
-          # Filter ACC_* keys + heredoc syntax (xem §2.2)
-          python3 -c "..."
-
-      - name: Run script
-        run: python -m src.main
-```
-
-> [!TIP]
-> **Tại sao chạy lúc 4:45 sáng VN?**
-> - Server Hoyoverse reset daily rewards vào 4:00 AM theo timezone của server
-> - Chạy lúc 4:45 đảm bảo đã qua thời điểm reset
-> - Tránh rush hour của các tool tự động khác (thường chạy đúng 4:00 hoặc 5:00)
-
----
+[The workflow manifest](../.github/workflows/hoyo-flow.yml) owns schedule, pinned actions, secret allowlist, concurrency, Python version and execution command. Its cron runs at 04:45 UTC+7. [The test workflow](../.github/workflows/test.yml) owns the Python 3.10/3.13 verification matrix. No copied YAML implementation is maintained here.
 
 ## 4. Lưu ý quan trọng
 
@@ -245,44 +113,35 @@ jobs:
 
 ## 5. Testing
 
-Project sử dụng `pytest` kết hợp với `pytest-asyncio` để kiểm tra toàn bộ logic nghiệp vụ mà không cần gọi API thực tế (Mocking).
+Unit and integration tests use `pytest` kết hợp với `pytest-asyncio` và mock
+responses. Live API health checks are separate and read-only; they validate read responses and do not exercise write endpoints.
 
 ### 5.1. Cấu trúc Testing
 
-```
-tests/
-├── auth/                  # Các file auth local (cookies.ps1.example)
-├── api-health/            # API health check scripts
-├── integration/           # End-to-end integration tests (test_integration.py)
-├── scripts/               # Script hỗ trợ Debug API (debug_checkin_info.py)
-├── unit/                  # Unit tests chi tiết
-│   ├── test_checkin.py    # Test logic điểm danh (Sol/Luna)
-│   ├── test_core.py       # Test models, utils và session isolation
-│   ├── test_coverage_audit.py
-│   ├── test_display.py    # Test UI formatting (display module)
-│   ├── test_fetch_cdkeys.py
-│   ├── test_fetch_uids.py # Test fetch UIDs (1 request, map game_biz/region)
-│   ├── test_main_flow.py  # Test main orchestration flow
-│   └── test_redeem.py     # Test đổi code & cross-region skip
-├── conftest.py            # Fixtures & Mock data chung
-└── pytest.ini             # (root level) Pytest config
-```
+Test ownership follows the current paths under `tests/unit/`,
+`tests/integration/`, and `tests/api_health/`; local cookie setup is under
+`tests/auth/`. The repository's `pytest.ini` is the source of truth for test
+discovery and markers.
 
 ### 5.2. Các kịch bản Test quan trọng
 
 - **Session Isolation**: Đảm bảo `ClientSession` dùng `DummyCookieJar` để không bị rò rỉ cookie giữa các tài khoản khi chạy song song.
 - **Header Differentiation**: Kiểm tra `x-rpc-*` headers được gửi đúng theo từng loại game (Sol vs Luna).
-- **Cross-region Skip**: Xác nhận nếu mã lỗi là `-2001` hoặc `-2016` (hết hạn/expired), tool sẽ tự động skip ở tất cả các region tiếp theo của game đó.
+- **Redeem independence**: Mỗi code và region được thử độc lập; không suy diễn
+  Hyl retcode thành expiry hoặc region ineligibility và không suppress code
+  khác sau một lỗi.
 - **Account Validation**: Đảm bảo cookie được parse chính xác và ném lỗi nếu thiếu các key bắt buộc (`_MHYUUID`, `_HYVUUID`, `cookie_token_v2`, `account_id_v2`).
 - **Display Formatting**: Đảm bảo display functions format đúng kết quả check-in, CDKeys, UIDs và redeem results.
 - **Fetch UIDs**: Đảm bảo fetch UIDs trong 1 request (map ngược game_biz/region về model) và lọc đúng accounts có UID.
+- **Typed fetch and fallback**: Kiểm tra `ProviderResult`/`RedemptionData`, fallback
+  per-game theo account, và lỗi chưa khôi phục được hiển thị rõ.
 - **Main Flow**: Test orchestration flow end-to-end (validate → check-in → fetch → redeem).
 
 ### 5.3. Cách chạy Test
 
 ```bash
 # Cài đặt test dependencies
-pip install pytest pytest-asyncio pytest-cov
+pip install -r requirements-dev.txt
 
 # Chạy toàn bộ test suite
 python -m pytest
@@ -293,12 +152,12 @@ python -m pytest --cov=src --cov-report=term-missing
 # Chạy chỉ unit tests
 python -m pytest tests/unit/
 
-# Chạy tests với live API (cần cookie)
+# Chạy read-only health checks với live API (cần cookie; không sign/redeem)
 python -m pytest -m live -v
 ```
 
 > [!NOTE]
-> CI pipeline (`test.yml`) chạy tự động trên mỗi push/PR với `--cov-fail-under=95`.
+> CI runs Black, Ruff, strict source mypy and mocked tests with `--cov-fail-under=95` on Python 3.10 and 3.13; the workflow owns exact path filters.
 
 ---
 
@@ -308,4 +167,5 @@ python -m pytest -m live -v
 Tự động lấy múi giờ hệ thống (Local Timezone) thay vì mặc định `Asia/Saigon`. Đảm bảo tính nhất quán khi người dùng chạy tool ở các khu vực khác nhau trên thế giới.
 
 ### 🧹 Clean Logistics Report
-Cải thiện hiển thị: Tự động ẩn danh sách các account không có nhân vật/UID hợp lệ trong phần Redeem Code để báo cáo gọn gàng, chuyên nghiệp hơn.
+Cải thiện hiển thị: Tự động ẩn danh sách các account có UID fetch thành công
+nhưng mapping rỗng trong phần Redeem Code để báo cáo gọn gàng, chuyên nghiệp hơn.

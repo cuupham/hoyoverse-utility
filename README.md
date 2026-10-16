@@ -16,9 +16,8 @@ If this saves you time, a ⭐ star helps others find it.
 
 ## Why this tool
 
-- **Parallel engine** — semaphore-based concurrency across accounts × games × regions; a full check-in + redeem run finishes in ~1.5 s
+- **Bounded async engine** — check-in and read-only fetches use the shared semaphore; redemption preserves sequential code/region order
 - **Multi-account native** — add `ACC_1` … `ACC_4` secrets and you're done; no config files to edit
-- **Cross-region smart skip** — once a code fails in one region, it's auto-skipped downstream to save API budget
 - **All 3 games, including Zenless Zone Zero** — some older helpers never added ZZZ
 - **Fork-and-forget** — zero local runtime; GitHub Actions runs it daily
 - **Tested** — unit + integration suite with a CI coverage gate on every push
@@ -29,7 +28,7 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
 |---|---|---|---|
 | Games incl. ZZZ | ✅ | varies | — |
 | Multi-account | ✅ native `ACC_*` | config file | — |
-| Parallel redeem | ✅ semaphore | sequential | — |
+| Bounded async requests | ✅ semaphore | varies | — |
 | Setup effort | fork + secrets | fork + config edit | daily login |
 
 ## Quick Start
@@ -39,7 +38,7 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
    1. Log in at [HoYoLab](https://www.hoyolab.com), open avatar → *Personal Homepage*
    2. DevTools (F12) → *Network* tab → find request `getGameRecordCard?uid=...`
    3. Copy the full `Cookie:` header value
-3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2`+ for more accounts.
+3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2` through `ACC_4` for more accounts. Local runs read all nonempty `ACC_*` variables; the supplied workflow explicitly exposes four secrets.
 4. **Run:** *Actions* → *HoYo Flow* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**.
 5. **Check the report tables** in the run log — done in seconds.
 
@@ -71,11 +70,11 @@ ACC_2     ✓ Already claimed  ✓ Already claimed   — No character yet
 --- REDEEM CODE ---
 Genshin Impact: 3 codes [ABC, DEF, XYZ]
 Account   Region  ABC           DEF           XYZ
-ACC_1     asia    ✓ Success     ✓ Success     ⏭ Skip
-ACC_2     asia    ✓ Success     ✓ Success     ⏭ Skip
-          usa     ✓ Success     ✓ Success     ⏭ Skip
+ACC_1     asia    ✓ Success     ✓ Success     ✗ Provider message (-2017)
+ACC_2     asia    ✓ Success     ✓ Success     ✗ Provider message (-2017)
+          usa     ✓ Success     ✓ Success     ✗ Provider message (-2017)
 
-DONE - 1.5s
+DONE - elapsed
 ```
 
 </details>
@@ -114,18 +113,15 @@ flowchart TD
 | `ACC_*` | Cookie strings (`ACC_1`, `ACC_2`, …) | required |
 | `DEBUG` | Enable debug-level logging | `""` |
 
-Tunables in [`src/config.py`](src/config.py):
+Runtime settings and defaults are owned by [`src/config.py`](src/config.py):
 
-```python
-SEMAPHORE_LIMIT = 20      # max parallel requests
-REDEEM_DELAY = 5          # seconds between redeems
-REQUEST_TIMEOUT = 30      # per-request timeout (s)
-MIN_REQUEST_TIMEOUT = 15  # floor timeout per attempt
-CONNECT_TIMEOUT = 10      # connect timeout (s)
-MAX_RETRIES = 3           # retries on failure
-RATE_LIMIT_DELAY = 5      # backoff on HTTP 429 (s)
-HEADER_WIDTH = 50         # display header width
-```
+- `SEMAPHORE_LIMIT` and connector limits bound concurrency.
+- `REDEEM_DELAY_SECONDS` preserves the delay between codes in a region.
+- `MAX_ATTEMPTS` includes the initial request; it is not an additional retry count.
+- `REQUEST_TIMEOUT_SECONDS`, `MIN_ATTEMPT_TIMEOUT_SECONDS` and `CONNECT_TIMEOUT_SECONDS` bound each attempt. Backoff and later attempts can make the complete operation take longer.
+- `RATE_LIMIT_DELAY_SECONDS` supplies the default HTTP 429 backoff.
+- `HEADER_WIDTH` controls report header width.
+
 
 </details>
 
@@ -147,8 +143,8 @@ Check that secret names match exactly (`ACC_1`, `ACC_2`, …) and re-run the wor
 **Rate limited (429)**
 Wait and re-run later; reduce account count if it persists; limits reset after ~24 h.
 
-**Codes keep getting skipped**
-`⏭ Skip` means the code is expired/invalid — it was already rejected in an earlier region and is skipped downstream to save requests. New codes arrive via livestreams/events.
+**A code fails**
+The report keeps the provider message and retcode for that code and region. Numeric HoYoLAB retcodes are not interpreted as permanent expiry or region ineligibility. New codes arrive via livestreams/events.
 
 </details>
 
@@ -165,12 +161,13 @@ hoyoverse-utility/
 │   ├── config.py              # Central config
 │   ├── constants.py           # Shared constants
 │   ├── api/
-│   │   ├── client.py          # HTTP client (retry, semaphore, anti-detection)
+│   │   ├── client.py          # JSON transport + provider-envelope parsing
+│   │   ├── request_builder.py # Browser/RPC headers and game-specific requests
 │   │   ├── checkin.py         # Check-in APIs
 │   │   ├── redeem_fetch.py    # CDKey & UID fetching (read-only)
 │   │   └── redeem_exchange.py # Code redemption (write)
-│   ├── models/                # Account / game models, typed API results
-│   └── utils/                 # Display, headers, logging, helpers
+│   ├── models/                # Immutable metadata and results.py contracts
+│   └── utils/                 # CLI display, environment, timekeeping, logging
 ├── tests/                     # Unit + integration + API-health suites
 ├── requirements/              # SPEC & architecture docs
 └── pytest.ini
@@ -196,11 +193,26 @@ pip install -r requirements.txt
 python -m src.main
 
 # Tests (mock data, no cookie needed)
-pip install pytest pytest-asyncio pytest-cov
-python -m pytest --cov=src --cov-report=term-missing
+pip install -r requirements-dev.txt
+python -m black --check src tests
+python -m ruff check src tests
+python -m mypy src
+python -m pytest tests/unit tests/integration --cov=src --cov-report=term-missing --cov-fail-under=95
 
-# Live API health tests (need real cookies: ACC_1 env var or tests/auth/.env.ps1)
-python -m pytest -m live -v
+# Live read-only API health tests (need real cookies: ACC_1 env var or tests/auth/.env.ps1; no sign/redeem writes)
+python -m pytest tests/api_health -m live -v
+```
+
+This repository is a CLI application. `src/api/` contains outbound HoYoLAB clients; it does not host a web API or frontend. See the [architecture](requirements/architecture.md) for module ownership.
+
+A run exits with code 1 for account-validation failures, unrecovered fetch errors, check-in failures/challenges, redemption transport/schema errors, or codes with no eligible code/game/UID combination anywhere in the run. Healthy independent work finishes first. A known no-character result and provider-level redemption rejections remain reported without failing an otherwise healthy run. Cookie-check outages are reported separately from invalid credentials.
+
+The optional read-only diagnostic uses the same credential loader and production wrappers, without printing account IDs or UIDs:
+
+```bash
+python tests/scripts/debug_checkin_info.py --help
+# With real credentials, reads only; never signs in or redeems:
+python tests/scripts/debug_checkin_info.py
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
@@ -222,7 +234,7 @@ Honestly — maybe. Automating check-ins/redeems sits in a gray zone of the HoYo
 <details>
 <summary><b>How is this different from other helpers?</b></summary>
 
-See the comparison table above: native multi-account via secrets (no config editing), semaphore-based parallel execution (~1.5 s full runs), cross-region redeem skip, and ZZZ support out of the box — plus a tested, CI-gated codebase.
+See the comparison table above: native multi-account via secrets (no config editing), bounded async reads, sequential redemption ordering, and ZZZ support out of the box — plus a tested, CI-gated codebase.
 </details>
 
 <details>
