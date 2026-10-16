@@ -58,26 +58,36 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
 <summary>Example run log (click to expand; statuses translated from runtime Vietnamese)</summary>
 
 ```
---- ACCOUNTS ---
-[✓] ACC_1: Valid (u****@gmail.com)
-[✓] ACC_2: Valid (c****@example.com)
+HOYOLAB AUTO TOOL · 2026-10-16 22:46:20 · trace c1d21ecb
 
---- CHECK-IN ---
-Account   Genshin Impact     Honkai: Star Rail   Zenless Zone Zero
-ACC_1     ✓ Day 15           ✓ Already claimed   ✓ Already claimed
-ACC_2     ✓ Already claimed  ✓ Already claimed   — No character yet
+ACCOUNTS  2/2 valid
+  ACC_1  a****@example.com
+  ACC_2  b****@example.com
 
---- REDEEM CODE ---
-Genshin Impact: 3 codes [ABC, DEF, XYZ]
-Account   Region  ABC           DEF           XYZ
-ACC_1     asia    ✓ Success     ✓ Success     ✗ [-2017] Provider message
-ACC_2     asia    ✓ Success     ✓ Success     ✗ [-2017] Provider message
-          usa     ✓ Success     ✓ Success     ✗ [-2017] Provider message
+CHECK-IN
+  Account  GI   HSR  ZZZ
+  ACC_1    d15  ok   ok
+  ACC_2    ok   ok   --
+  d<N> claimed today · ok already claimed · -- no character yet · ERR failed
 
-DONE - elapsed
+REDEEM
+  Genshin Impact: 3 codes [ABC, DEF, XYZ]
+UIDs:
+  ACC_1: Genshin Impact(asia)
+  ACC_2: Genshin Impact(asia, usa)
+
+[Genshin Impact]
+Account   Region  ABC   DEF   XYZ
+ACC_1     asia    ok    ok    ERR [-2017] Provider message
+ACC_2     asia    ok    ok    ERR [-2017] Provider message
+          usa     ok    ok    ERR [-2017] Provider message
+
+RESULT  OK · 5 checked in · 1 no character yet · 0 errors · 4.2s
 ```
 
 </details>
+
+On GitHub Actions each run also publishes the check-in table to the job summary, and failures appear as workflow annotations.
 
 ## How it works
 
@@ -120,7 +130,6 @@ Runtime settings and defaults are owned by [`src/config.py`](src/config.py):
 - `MAX_ATTEMPTS` includes the initial request; it is not an additional retry count.
 - `REQUEST_TIMEOUT_SECONDS`, `MIN_ATTEMPT_TIMEOUT_SECONDS` and `CONNECT_TIMEOUT_SECONDS` bound each attempt. Backoff and later attempts can make the complete operation take longer.
 - `RATE_LIMIT_DELAY_SECONDS` supplies the default HTTP 429 backoff.
-- `HEADER_WIDTH` controls report header width.
 
 
 </details>
@@ -222,7 +231,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 <details>
 <summary><b>Is my cookie safe?</b></summary>
 
-It's stored in GitHub's encrypted Secrets service, injected only into your own workflow runs, and transmitted only to official HoYoLAB endpoints. Run logs mask emails (`u****@gmail.com`). Still, treat cookies like passwords: rotate them periodically and never commit them.
+It's stored in GitHub's encrypted Secrets service, injected only into your own workflow runs, and transmitted only to official HoYoLAB endpoints. Run logs mask emails (`a****@example.com`). Still, treat cookies like passwords: rotate them periodically and never commit them.
 </details>
 
 <details>

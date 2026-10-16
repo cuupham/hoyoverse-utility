@@ -38,6 +38,12 @@ def pytest_collection_modifyitems(config, items):
             )
 
 
+@pytest.fixture(autouse=True)
+def isolate_ci_environment(monkeypatch):
+    """Tests run on GitHub Actions too; they must not write to its job summary."""
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+
+
 # ==================== MOCK HELPERS ====================
 class MockAsyncCM:
     """Mock async context manager cho session.request() trong tests.

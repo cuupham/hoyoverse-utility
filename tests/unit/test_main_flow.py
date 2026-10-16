@@ -19,7 +19,9 @@ class TestPrintHeader:
     def test_prints_header(self):
         with patch("src.main.log_print") as mock_log:
             main_module.print_header()
-            assert mock_log.call_count >= 4
+        first = mock_log.call_args_list[0].args[0]
+        assert "HOYOLAB AUTO TOOL" in first
+        assert main_module.ctx.trace_id in first
 
 
 class TestRunCheckin:
@@ -369,3 +371,115 @@ class TestFetchRedemptionDataEmpty:
         assert all(codes == [] for codes in result.cdkeys.values())
         assert result.account_uids == {}
         assert result.errors == []
+
+
+def _checkin(status, **extra):
+    return {
+        "success": status in {"claimed", "already_claimed"},
+        "status": status,
+        "message": "msg",
+        **extra,
+    }
+
+
+class TestFailureCollection:
+    def test_checkin_failures_skip_missing_character(self):
+        results = {
+            "ACC_1": {
+                Game.GENSHIN: _checkin("no_character"),
+                Game.STAR_RAIL: _checkin("already_claimed"),
+                Game.ZZZ: _checkin("failed", message="boom", retcode=-1),
+            }
+        }
+        assert main_module._checkin_failures(results) == [
+            "ACC_1 · Zenless Zone Zero · [-1] boom"
+        ]
+
+    def test_redeem_failures_skip_provider_rejections(self):
+        results = {
+            "ACC_1": {
+                Game.GENSHIN: {
+                    "asia": {
+                        "USED": {
+                            "success": False,
+                            "message": "used",
+                            "error_kind": "provider",
+                        },
+                        "OK": {"success": True, "message": "ok"},
+                        "LOST": {
+                            "success": False,
+                            "message": "net",
+                            "error_kind": "network",
+                        },
+                    }
+                }
+            }
+        }
+        assert main_module._redeem_failures(results) == [
+            "ACC_1 · Genshin Impact · asia · LOST · net"
+        ]
+
+
+class TestValidateAccountsOutput:
+    @pytest.mark.asyncio
+    async def test_lists_each_account_and_reports_errors_once(
+        self, mock_session, mock_accounts
+    ):
+        checks = [
+            {"valid": True, "email_mask": "v****@example.com", "error": None},
+            {"valid": False, "email_mask": None, "error": "expired"},
+        ]
+        lines = []
+        with (
+            patch("src.main.check_cookie", side_effect=checks),
+            patch("src.main.log_print", side_effect=lambda m="": lines.append(m)),
+        ):
+            result = await main_module.validate_accounts(mock_session, mock_accounts)
+
+        assert lines[0] == "ACCOUNTS  1/2 hợp lệ"
+        assert lines[1].split() == ["ACC_1", "v****@example.com"]
+        assert lines[2].split() == ["ACC_2", "ERR"]
+        assert result.errors == ["ACC_2 · expired"]
+
+
+class TestMainReporting:
+    @pytest.mark.asyncio
+    async def test_failed_run_reports_result_and_writes_summary(
+        self, mock_account, valid_cookie
+    ):
+        session = AsyncMock()
+        session.__aenter__.return_value = session
+        results = {
+            "ACC_1": {
+                game: _checkin("failed", message="boom", retcode=-1) for game in Game
+            }
+        }
+
+        with (
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
+            patch("src.main.print_header"),
+            patch("src.main.create_session", return_value=session),
+            patch(
+                "src.main.validate_accounts",
+                new_callable=AsyncMock,
+                return_value=AccountValidationResult([mock_account]),
+            ),
+            patch("src.main.run_checkin", new_callable=AsyncMock, return_value=results),
+            patch(
+                "src.main.fetch_redemption_data",
+                new_callable=AsyncMock,
+                return_value=RedemptionData({game: [] for game in Game}, {}),
+            ),
+            patch("src.main.display_checkin"),
+            patch("src.main.display_redeem"),
+            patch("src.main.display_result") as display_result,
+            patch("src.main.write_job_summary") as write_summary,
+            pytest.raises(SystemExit, match="1"),
+        ):
+            await main_module.main()
+
+        failures = display_result.call_args.args[1]
+        assert len(failures) == len(Game)
+        assert write_summary.call_args.args[:2] == (results, failures)

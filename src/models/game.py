@@ -13,6 +13,7 @@ class GameInfo:
 
     code: GameCode
     name: str
+    short_name: str
     game_id: str
     act_id: str
     game_biz: str
@@ -26,6 +27,7 @@ class Game(Enum):
     GENSHIN = GameInfo(
         code="gs",
         name="Genshin Impact",
+        short_name="GI",
         game_id="2",
         act_id="e202102251931481",
         game_biz="hk4e_global",
@@ -34,6 +36,7 @@ class Game(Enum):
     STAR_RAIL = GameInfo(
         code="sr",
         name="Honkai: Star Rail",
+        short_name="HSR",
         game_id="6",
         act_id="e202303301540311",
         game_biz="hkrpg_global",
@@ -42,6 +45,7 @@ class Game(Enum):
     ZZZ = GameInfo(
         code="zzz",
         name="Zenless Zone Zero",
+        short_name="ZZZ",
         game_id="8",
         act_id="e202406031448091",
         game_biz="nap_global",

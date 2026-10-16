@@ -23,6 +23,25 @@ class TraceIdFilter(logging.Filter):
         return True
 
 
+class CiFormatter(logging.Formatter):
+    """GitHub already timestamps each line; errors become workflow annotations."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = record.getMessage()
+        if record.levelno < logging.ERROR:
+            return message
+        escaped = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        return f"::error::{escaped}"
+
+
+def _build_formatter() -> logging.Formatter:
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        return CiFormatter()
+    return logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%d/%m/%Y %H:%M:%S"
+    )
+
+
 if TYPE_CHECKING:
     _StreamHandlerBase = logging.StreamHandler[TextIO]
 else:
@@ -66,12 +85,7 @@ class ExecutionContext:
 
         handler = ForceFlushStreamHandler()
         handler.setLevel(log_level)
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s [%(levelname)s] %(message)s",
-                datefmt="%d/%m/%Y %H:%M:%S",
-            )
-        )
+        handler.setFormatter(_build_formatter())
 
         named_logger = logging.getLogger(_LOGGER_NAME)
         named_logger.setLevel(log_level)

@@ -5,9 +5,11 @@ import time
 from unittest.mock import patch
 
 from src.utils.logger import (
+    CiFormatter,
     ExecutionContext,
     ForceFlushStreamHandler,
     TraceIdFilter,
+    _build_formatter,
     ctx,
     log_error,
     log_info,
@@ -113,3 +115,26 @@ class TestLogger:
             log_error("ACC_1", "test error")
             mock_logger.error.assert_called_once()
             assert "ACC_1" in mock_logger.error.call_args[0][0]
+
+
+class TestCiFormatter:
+    @staticmethod
+    def _record(level, message):
+        return logging.LogRecord("test", level, "", 0, message, (), None)
+
+    def test_info_is_bare_message(self):
+        assert CiFormatter().format(self._record(logging.INFO, "hello")) == "hello"
+
+    def test_error_becomes_annotation(self):
+        record = self._record(logging.ERROR, "[ACC_1] boom")
+        assert CiFormatter().format(record) == "::error::[ACC_1] boom"
+
+    def test_annotation_escapes_workflow_command_characters(self):
+        record = self._record(logging.ERROR, "100%\nnext\rline")
+        assert CiFormatter().format(record) == "::error::100%25%0Anext%0Dline"
+
+    def test_formatter_follows_github_actions_env(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        assert isinstance(_build_formatter(), CiFormatter)
+        monkeypatch.delenv("GITHUB_ACTIONS")
+        assert not isinstance(_build_formatter(), CiFormatter)

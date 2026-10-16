@@ -84,9 +84,6 @@ DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecate
 CONNECTOR_LIMIT = 30
 CONNECTOR_LIMIT_PER_HOST = 10
 
-# Display: độ rộng dòng header/footer (số ký tự "=")
-HEADER_WIDTH = 50
-
 # ==================== RPC HEADER VALUES (single source - dùng trong request_builder) ====================
 RPC_LANGUAGE = "en-us"
 RPC_CLIENT_TYPE = "4"
@@ -111,32 +108,47 @@ SYSTEM_MESSAGES = {
     "REQUEST_FAILED": "Request failed",
     "REDEEM_SUCCESS": "Thành công",
     "REDEEM_UNKNOWN_REGION": "Unknown region: {region_code}",
-    "CHECKIN_DAY_SHORT": "✓ Ngày {day}",
-    "SECTION_ACCOUNTS": "--- KIỂM TRA ACCOUNTS ---",
-    "VALIDATION_SUMMARY": "Tổng: {valid}/{total} accounts hợp lệ",
     "CHECKIN_SUCCESS": "Điểm danh thành công",
     "CHECKIN_ALREADY": "Đã điểm danh trước đó",
     "CHECKIN_CHALLENGE": "Cần xác minh trên trang điểm danh HoYoLAB",
-    "CHECKIN_CHALLENGE_SHORT": "✗ Cần xác minh",
-    "VALIDATION_VALID": "Hợp lệ",
     "VALIDATION_ALL_FAILED": "Không thể xác thực account nào; xem lỗi từng account.",
     "VALIDATION_NONE_FOUND": "Không tìm thấy account nào trong environment variables!",
     "VALIDATION_NONE_VALID": "Không có account nào hợp lệ để tiếp tục!",
-    "REDEEM_NO_CODES": "Không có codes nào để redeem",
     "REDEEM_NO_ELIGIBLE": "Không có account nào có UID cho game đang có code",
     "SYSTEM_NO_CODES": "Không có codes",
     "SYSTEM_NO_UIDS": "Không có UID nào",
-    # Display section headers
-    "SECTION_CHECKIN": "--- CHECK-IN ---",
-    "SECTION_REDEEM": "--- REDEEM CODE ---",
-    "LABEL_CDKEYS": "CDKeys:",
+    # Display: two-space gap separates a section name from its inline detail
+    "HEADER": "HOYOLAB AUTO TOOL · {time} · trace {trace}",
+    "SECTION_ACCOUNTS": "ACCOUNTS  {valid}/{total} hợp lệ",
+    "SECTION_CHECKIN": "CHECK-IN",
+    "SECTION_REDEEM": "REDEEM",
+    "REDEEM_NONE": "REDEEM  không có code mới",
+    "REDEEM_FETCH_FAILED": "REDEEM  không lấy được dữ liệu (xem LỖI)",
     "LABEL_UIDS": "UIDs:",
-    # Checkin status (short display)
-    "CHECKIN_ALREADY_SHORT": "✓ Đã điểm danh",
-    "CHECKIN_NO_CHARACTER": "— Chưa tạo nhân vật",
+    "FAILURE_SCOPE": "LỖI",
+    "CHECKIN_LEGEND": "{claimed} vừa điểm danh · {already} đã điểm danh trước · {skipped} chưa có nhân vật · {error} lỗi",
+    "RESULT_LINE": "KẾT QUẢ  {verdict} · {ok} điểm danh · {skipped} chưa có nhân vật · {errors} lỗi · {seconds:.1f}s",
     "ERR_NETWORK": "Network connection failed",
     "ERR_TIMEOUT": "Request timed out",
     "ERR_INVALID_JSON": "Response not JSON",
     "ERR_INVALID_RESPONSE": "Unexpected API response structure",
     "ERR_UNKNOWN_SECURE": "Request failed (details hidden for security)",
+}
+
+# ==================== STATUS LABELS ====================
+# ASCII keeps table columns aligned in the GitHub log font.
+STATUS_OK = "ok"
+STATUS_SKIPPED = "--"
+STATUS_ERROR = "ERR"
+CHECKIN_DAY_LABEL = "d{day}"
+VERDICT_OK = "OK"
+VERDICT_FAILED = "FAILED"
+
+# Check-in status -> (log table cell, job summary cell)
+CHECKIN_LABELS = {
+    "claimed": (CHECKIN_DAY_LABEL, "✅ Ngày {day}"),
+    "already_claimed": (STATUS_OK, "✅ Đã điểm danh"),
+    "no_character": (STATUS_SKIPPED, "➖ Chưa có nhân vật"),
+    "challenge": (STATUS_ERROR, "❌ Cần xác minh"),
+    "failed": (STATUS_ERROR, "❌ Lỗi"),
 }

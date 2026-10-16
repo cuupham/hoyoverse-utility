@@ -1,18 +1,30 @@
 """Tests cho display.py - table format check-in/redeem"""
 
+from typing import get_args
 from unittest.mock import patch
 
-from src.config import SYSTEM_MESSAGES
+from src.config import (
+    CHECKIN_LABELS,
+    STATUS_ERROR,
+    STATUS_OK,
+    STATUS_SKIPPED,
+    SYSTEM_MESSAGES,
+    VERDICT_FAILED,
+    VERDICT_OK,
+)
 from src.models.game import Game
+from src.models.results import CheckinStatus
 from src.utils.display import (
     _plural,
-    _short_checkin_status,
     _short_redeem_status,
+    checkin_label,
     display_cdkeys,
     display_checkin,
     display_redeem,
     display_redeem_results,
+    display_result,
     display_uids,
+    format_result_line,
 )
 
 
@@ -27,75 +39,56 @@ class TestPlural:
         assert _plural(0, "region") == "0 regions"
 
 
-class TestShortCheckinStatus:
-    def test_already_signed(self):
-        result = {
-            "success": True,
-            "status": "already_claimed",
-            "message": SYSTEM_MESSAGES["CHECKIN_ALREADY"],
-            "day": 14,
-        }
-        assert _short_checkin_status(result) == "✓ Đã điểm danh"
+def _result(status, **extra):
+    success = status in {"claimed", "already_claimed"}
+    return {"success": success, "status": status, "message": "msg", **extra}
 
-    def test_new_sign(self):
-        result = {
-            "success": True,
-            "status": "claimed",
-            "message": SYSTEM_MESSAGES["CHECKIN_SUCCESS"],
-            "day": 15,
-        }
-        assert _short_checkin_status(result) == "✓ Ngày 15"
 
-    def test_no_character_status_is_independent_of_provider_message(self):
-        result = {
-            "success": False,
-            "status": "no_character",
-            "message": "Translated provider text",
-        }
-        assert "Chưa tạo nhân vật" in _short_checkin_status(result)
+class TestCheckinLabel:
+    def test_every_status_has_a_label(self):
+        assert set(CHECKIN_LABELS) == set(get_args(CheckinStatus))
 
-    def test_error_containing_character_is_not_reclassified(self):
-        result = {
-            "success": False,
-            "status": "failed",
-            "message": "Character service unavailable",
-        }
-        assert _short_checkin_status(result).startswith("✗")
+    def test_already_claimed(self):
+        assert checkin_label(_result("already_claimed", day=14)) == STATUS_OK
 
-    def test_already_claimed_status_is_independent_of_translation(self):
-        result = {
-            "success": True,
-            "status": "already_claimed",
-            "message": "Other language",
-            "day": 14,
-        }
-        assert _short_checkin_status(result) == SYSTEM_MESSAGES["CHECKIN_ALREADY_SHORT"]
+    def test_claimed_shows_day(self):
+        assert checkin_label(_result("claimed", day=15)) == "d15"
 
-    def test_challenge_uses_dedicated_short_label(self):
-        result = {
-            "success": False,
-            "status": "challenge",
-            "message": SYSTEM_MESSAGES["CHECKIN_CHALLENGE"],
-        }
-        assert (
-            _short_checkin_status(result) == SYSTEM_MESSAGES["CHECKIN_CHALLENGE_SHORT"]
-        )
+    def test_no_character_is_independent_of_provider_message(self):
+        result = _result("no_character", message="Translated provider text")
+        assert checkin_label(result) == STATUS_SKIPPED
 
-    def test_other_error_truncated(self):
-        result = {"success": False, "message": "A" * 50}
-        status = _short_checkin_status(result)
-        assert status.startswith("✗")
-        assert len(status) <= 25
+    def test_failed_message_is_not_reclassified(self):
+        result = _result("failed", message="Character service unavailable")
+        assert checkin_label(result) == STATUS_ERROR
+
+    def test_challenge_is_an_error(self):
+        assert checkin_label(_result("challenge")) == STATUS_ERROR
+
+    def test_markdown_labels_use_emoji(self):
+        assert checkin_label(_result("claimed", day=3), markdown=True) == "✅ Ngày 3"
+        assert checkin_label(_result("failed"), markdown=True).startswith("❌")
+
+    def test_log_labels_are_ascii(self):
+        for log_label, _ in CHECKIN_LABELS.values():
+            assert log_label.isascii()
 
 
 class TestShortRedeemStatus:
     def test_success(self):
-        assert "Thành công" in _short_redeem_status({"success": True, "message": "OK"})
+        assert _short_redeem_status({"success": True, "message": "OK"}) == STATUS_OK
 
     def test_failed(self):
         status = _short_redeem_status({"success": False, "message": "Đã sử dụng"})
-        assert "✗" in status
+        assert status.startswith(STATUS_ERROR)
         assert "Đã sử dụng" in status
+
+
+def _capture():
+    lines = []
+    return lines, patch(
+        "src.utils.display.log_print", side_effect=lambda m="": lines.append(m)
+    )
 
 
 class TestDisplayCheckin:
@@ -107,61 +100,109 @@ class TestDisplayCheckin:
             assert mock_log.call_count >= 1
 
     def test_table_format(self):
-        """Verify table output có header + rows"""
+        """Verify table output có header + rows + legend"""
         results = {
             "ACC_1": {
-                Game.GENSHIN: {
-                    "success": True,
-                    "status": "already_claimed",
-                    "message": SYSTEM_MESSAGES["CHECKIN_ALREADY"],
-                    "day": 14,
-                },
-                Game.STAR_RAIL: {
-                    "success": True,
-                    "status": "claimed",
-                    "message": SYSTEM_MESSAGES["CHECKIN_SUCCESS"],
-                    "day": 5,
-                },
-                Game.ZZZ: {
-                    "success": False,
-                    "status": "no_character",
-                    "message": "No character detected",
-                },
+                Game.GENSHIN: _result("already_claimed", day=14),
+                Game.STAR_RAIL: _result("claimed", day=5),
+                Game.ZZZ: _result("no_character"),
             },
         }
-        lines = []
-        with patch(
-            "src.utils.display.log_print", side_effect=lambda m="": lines.append(m)
-        ):
+        lines, capture = _capture()
+        with capture:
             display_checkin(results)
 
-        assert any("Account" in line for line in lines)  # header
-        assert any("ACC_1" in line for line in lines)  # data row
-        assert any("Đã điểm danh" in line for line in lines)
-        assert any("Ngày 5" in line for line in lines)
+        header = next(line for line in lines if "Account" in line)
+        row = next(line for line in lines if "ACC_1" in line)
+        for game in Game:
+            assert game.value.short_name in header
+        assert row.split() == ["ACC_1", STATUS_OK, "d5", STATUS_SKIPPED]
+        assert any(STATUS_ERROR in line and "lỗi" in line for line in lines)
+
+    def test_columns_align_with_header(self):
+        results = {
+            "ACC_LONG_NAME": {game: _result("claimed", day=10) for game in Game},
+            "A": {game: _result("failed") for game in Game},
+        }
+        lines, capture = _capture()
+        with capture:
+            display_checkin(results)
+
+        header = next(line for line in lines if "Account" in line)
+        rows = [line for line in lines if line.strip().startswith(("ACC_LONG", "A "))]
+        assert len(rows) == 2
+        for row in rows:
+            for game in Game:
+                col = header.index(game.value.short_name)
+                assert row[col] != " "
+                assert row[col - 1] == " "
+
+    def test_rows_have_no_trailing_spaces(self):
+        results = {"ACC_1": {game: _result("already_claimed") for game in Game}}
+        lines, capture = _capture()
+        with capture:
+            display_checkin(results)
+
+        assert all(line == line.rstrip() for line in lines)
 
     def test_multi_account_rows(self):
         """Mỗi account = 1 dòng"""
         results = {
-            f"ACC_{i}": {
-                game: {
-                    "success": True,
-                    "status": "already_claimed",
-                    "message": SYSTEM_MESSAGES["CHECKIN_ALREADY"],
-                    "day": 1,
-                }
-                for game in Game
-            }
+            f"ACC_{i}": {game: _result("already_claimed", day=1) for game in Game}
             for i in range(1, 4)
         }
-        lines = []
-        with patch(
-            "src.utils.display.log_print", side_effect=lambda m="": lines.append(m)
-        ):
+        lines, capture = _capture()
+        with capture:
             display_checkin(results)
 
-        data_lines = [l for l in lines if l.startswith("ACC_")]
+        data_lines = [line for line in lines if line.strip().startswith("ACC_")]
         assert len(data_lines) == 3
+
+
+class TestResult:
+    RESULTS = {
+        "ACC_1": {
+            Game.GENSHIN: _result("claimed", day=1),
+            Game.STAR_RAIL: _result("already_claimed"),
+            Game.ZZZ: _result("no_character"),
+        },
+        "ACC_2": {
+            Game.GENSHIN: _result("failed"),
+            Game.STAR_RAIL: _result("challenge"),
+            Game.ZZZ: _result("already_claimed"),
+        },
+    }
+
+    def test_counts_and_ok_verdict(self):
+        line = format_result_line(self.RESULTS, [], 3.14)
+        assert line.startswith(f"KẾT QUẢ  {VERDICT_OK}")
+        assert "3 điểm danh" in line
+        assert "1 chưa có nhân vật" in line
+        assert "0 lỗi" in line
+        assert line.endswith("3.1s")
+
+    def test_failed_verdict(self):
+        line = format_result_line(self.RESULTS, ["ACC_2 · x", "ACC_2 · y"], 1)
+        assert VERDICT_FAILED in line
+        assert "2 lỗi" in line
+
+    def test_empty_results(self):
+        assert "0 điểm danh" in format_result_line({}, [], 0)
+
+    def test_failures_are_logged_as_errors_before_the_result_line(self):
+        calls = []
+        with (
+            patch(
+                "src.utils.display.log_error", side_effect=lambda *a: calls.append(a)
+            ),
+            patch(
+                "src.utils.display.log_print", side_effect=lambda m="": calls.append(m)
+            ),
+        ):
+            display_result(self.RESULTS, ["ACC_2 · boom"], 1)
+
+        assert calls[0] == (SYSTEM_MESSAGES["FAILURE_SCOPE"], "ACC_2 · boom")
+        assert VERDICT_FAILED in calls[1]
 
 
 class TestDisplayCdkeys:
@@ -302,36 +343,36 @@ class TestDisplayRedeemResults:
 
 
 class TestDisplayRedeem:
-    def test_no_codes_early_return(self):
-        """Khi không có codes → chỉ hiện CDKeys, không hiện UIDs"""
+    def test_no_codes_prints_single_line(self):
         cdkeys = {game: [] for game in Game}
         uids = {"ACC_1": {game: {} for game in Game}}
-        lines = []
-        with (
-            patch(
-                "src.utils.display.log_print", side_effect=lambda m="": lines.append(m)
-            ),
-            patch("src.utils.display.log_info"),
-        ):
+        lines, capture = _capture()
+        with capture:
             display_redeem(cdkeys, uids)
 
-        output = "\n".join(lines)
-        assert "CDKeys" in output
-        assert "UIDs" not in output  # early return
+        assert lines[0] == SYSTEM_MESSAGES["REDEEM_NONE"]
+        assert not any("UIDs" in line for line in lines)
+
+    def test_fetch_errors_are_not_reported_as_no_codes(self):
+        cdkeys = {game: [] for game in Game}
+        lines, capture = _capture()
+        with capture:
+            display_redeem(cdkeys, {}, ["CDKeys / Genshin Impact: boom"])
+
+        assert lines[0] == SYSTEM_MESSAGES["REDEEM_FETCH_FAILED"]
 
     def test_with_codes_shows_uids(self):
         cdkeys = {Game.GENSHIN: ["CODE1"], Game.STAR_RAIL: [], Game.ZZZ: []}
         uids = {
             "ACC_1": {Game.GENSHIN: {"asia": "123"}, Game.STAR_RAIL: {}, Game.ZZZ: {}}
         }
-        lines = []
-        with patch(
-            "src.utils.display.log_print", side_effect=lambda m="": lines.append(m)
-        ):
+        lines, capture = _capture()
+        with capture:
             display_redeem(cdkeys, uids)
 
         output = "\n".join(lines)
-        assert "CDKeys" in output
+        assert SYSTEM_MESSAGES["SECTION_REDEEM"] in output
+        assert "CODE1" in output
         assert "UIDs" in output
 
 
@@ -343,7 +384,7 @@ class TestDisplayTruncation:
         long_msg = {"success": False, "message": "A" * 100}
         status = _short_redeem_status(long_msg)
         # Status chứa đủ message ban đầu, truncation xảy ra trong display_redeem_results
-        assert status.startswith("✗")
+        assert status.startswith(STATUS_ERROR)
 
     def test_redeem_table_truncates_long_status(self):
         """display_redeem_results truncate status quá dài"""

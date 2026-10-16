@@ -11,19 +11,29 @@ from src.api.checkin import check_cookie, run_checkin_for_account
 from src.api.client import create_session
 from src.api.redeem_exchange import run_redeem_for_account
 from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
-from src.config import HEADER_WIDTH, SYSTEM_MESSAGES
+from src.config import STATUS_ERROR, SYSTEM_MESSAGES
 from src.models.account import Account
 from src.models.game import Game
 from src.models.results import (
     AccountValidationResult,
+    CheckinResult,
     CheckinResults,
     ProviderResult,
+    RedeemResult,
     RedemptionData,
     RedemptionResults,
 )
-from src.utils.display import display_checkin, display_redeem, display_redeem_results
+from src.utils.display import (
+    INDENT,
+    display_checkin,
+    display_failures,
+    display_redeem,
+    display_redeem_results,
+    display_result,
+)
 from src.utils.environment import get_accounts_from_env
 from src.utils.logger import ctx, log_error, log_print
+from src.utils.summary import write_job_summary
 from src.utils.timekeeping import TZ
 
 if TYPE_CHECKING:
@@ -32,11 +42,12 @@ if TYPE_CHECKING:
 
 def print_header() -> None:
     """In header của tool."""
-    log_print("=" * HEADER_WIDTH)
-    log_print("HOYOLAB AUTO TOOL")
-    log_print(f"Time: {datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')}")
-    log_print(f"Trace: {ctx.trace_id}")
-    log_print("=" * HEADER_WIDTH)
+    log_print(
+        SYSTEM_MESSAGES["HEADER"].format(
+            time=datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S"), trace=ctx.trace_id
+        )
+    )
+    log_print()
 
 
 async def validate_accounts(
@@ -44,29 +55,29 @@ async def validate_accounts(
     accounts: list[Account],
 ) -> AccountValidationResult:
     """Validate tất cả cookies song song."""
-    log_print(SYSTEM_MESSAGES["SECTION_ACCOUNTS"])
-
     tasks = [check_cookie(session, acc) for acc in accounts]
     results = await asyncio.gather(*tasks)
 
     valid_accounts = []
     errors = []
+    name_w = max(len(acc.name) for acc in accounts) + 2
+    lines = []
     for acc, result in zip(accounts, results):
         if result["valid"]:
-            log_print(
-                f"[✓] {acc.name}: {SYSTEM_MESSAGES['VALIDATION_VALID']} ({result['email_mask']})"
-            )
             valid_accounts.append(acc)
+            detail = result["email_mask"]
         else:
-            error = f"{acc.name}: {result['error']}"
-            errors.append(error)
-            log_print(f"[✗] {error}")
+            errors.append(f"{acc.name} · {result['error']}")
+            detail = STATUS_ERROR
+        lines.append(f"{INDENT}{acc.name:<{name_w}}{detail}")
 
     log_print(
-        SYSTEM_MESSAGES["VALIDATION_SUMMARY"].format(
+        SYSTEM_MESSAGES["SECTION_ACCOUNTS"].format(
             valid=len(valid_accounts), total=len(accounts)
         )
     )
+    for line in lines:
+        log_print(line)
     log_print()
     return AccountValidationResult(valid_accounts, errors)
 
@@ -163,6 +174,33 @@ async def run_redeem_for_all(
     return {acc.name: res for acc, res in zip(eligible, results)}
 
 
+def _describe(result: CheckinResult | RedeemResult) -> str:
+    retcode = result.get("retcode")
+    message = result["message"]
+    return f"[{retcode}] {message}" if retcode is not None else message
+
+
+def _checkin_failures(checkin_results: CheckinResults) -> list[str]:
+    return [
+        f"{account} · {game.value.name} · {_describe(result)}"
+        for account, games in checkin_results.items()
+        for game, result in games.items()
+        if not result["success"] and result.get("status") != "no_character"
+    ]
+
+
+def _redeem_failures(redeem_results: RedemptionResults) -> list[str]:
+    """Provider rejections (used, expired codes) are normal outcomes, not failures."""
+    return [
+        f"{account} · {game.value.name} · {region} · {code} · {_describe(result)}"
+        for account, games in redeem_results.items()
+        for game, regions in games.items()
+        for region, codes in regions.items()
+        for code, result in codes.items()
+        if not result["success"] and result.get("error_kind") != "provider"
+    ]
+
+
 async def main() -> None:
     """Main flow"""
     ctx.reset_timer()
@@ -175,15 +213,15 @@ async def main() -> None:
         sys.exit(1)
 
     accounts: list[Account] = []
-    failed_run = False
+    failures: list[str] = []
     for name, cookie_str in sorted(env_accounts.items()):
         try:
             accounts.append(Account.from_cookie_string(name, cookie_str))
         except ValueError as error:
-            log_error(name, str(error))
-            failed_run = True
+            failures.append(f"{name} · {error}")
 
     if not accounts:
+        display_failures(failures)
         log_error("SYSTEM", SYSTEM_MESSAGES["VALIDATION_NONE_VALID"])
         sys.exit(1)
 
@@ -191,8 +229,9 @@ async def main() -> None:
         # Bước 2: Validate cookies
         validation = await validate_accounts(session, accounts)
         valid_accounts = validation.valid_accounts
-        failed_run = failed_run or bool(validation.errors)
+        failures += validation.errors
         if not valid_accounts:
+            display_failures(failures)
             log_error("SYSTEM", SYSTEM_MESSAGES["VALIDATION_ALL_FAILED"])
             sys.exit(1)
 
@@ -204,41 +243,26 @@ async def main() -> None:
 
         # Hiển thị checkin ngay (không đợi redeem)
         display_checkin(checkin_results)
+        failures += _checkin_failures(checkin_results)
 
         # Bước 4: Redeem (dựa trên dữ liệu đã fetch)
         cdkeys, account_uids = redemption_data.cdkeys, redemption_data.account_uids
         display_redeem(cdkeys, account_uids, redemption_data.errors)
-        failed_run = (
-            failed_run
-            or bool(redemption_data.errors)
-            or any(
-                not result["success"] and result.get("status") != "no_character"
-                for results in checkin_results.values()
-                for result in results.values()
-            )
-        )
+        failures += redemption_data.errors
 
-        total_codes = sum(len(codes) for codes in cdkeys.values())
-        if total_codes > 0:
+        if any(cdkeys.values()):
             redeem_results = await run_redeem_for_all(
                 session, valid_accounts, cdkeys, account_uids
             )
             if redeem_results:
                 display_redeem_results(redeem_results)
-                failed_run = failed_run or any(
-                    not result["success"] and result.get("error_kind") != "provider"
-                    for games in redeem_results.values()
-                    for regions in games.values()
-                    for codes in regions.values()
-                    for result in codes.values()
-                )
+                failures += _redeem_failures(redeem_results)
             else:
                 log_print(SYSTEM_MESSAGES["REDEEM_NO_ELIGIBLE"])
 
-    log_print("=" * HEADER_WIDTH)
-    log_print(f"DONE - {ctx.elapsed_seconds:.1f}s")
-    log_print("=" * HEADER_WIDTH)
-    if failed_run:
+    display_result(checkin_results, failures, ctx.elapsed_seconds)
+    write_job_summary(checkin_results, failures, ctx.elapsed_seconds)
+    if failures:
         sys.exit(1)
 
 

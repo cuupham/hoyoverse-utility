@@ -27,7 +27,7 @@ class TestIntegrationFlow:
             )
 
             assert len(valid_accs.valid_accounts) == 1
-            assert valid_accs.errors == ["ACC_2: Invalid cookie"]
+            assert valid_accs.errors == ["ACC_2 · Invalid cookie"]
             assert valid_accs.valid_accounts[0].name == "ACC_1"
 
     @pytest.mark.asyncio

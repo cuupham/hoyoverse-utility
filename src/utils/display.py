@@ -2,10 +2,21 @@
 
 from __future__ import annotations
 
-from src.config import SYSTEM_MESSAGES
+from src.config import (
+    CHECKIN_DAY_LABEL,
+    CHECKIN_LABELS,
+    STATUS_ERROR,
+    STATUS_OK,
+    STATUS_SKIPPED,
+    SYSTEM_MESSAGES,
+    VERDICT_FAILED,
+    VERDICT_OK,
+)
 from src.models.game import Game
-from src.models.results import CheckinResult, RedeemResult
-from src.utils.logger import log_error, log_info, log_print
+from src.models.results import CheckinResult, CheckinResults, RedeemResult
+from src.utils.logger import log_error, log_print
+
+INDENT = "  "
 
 
 def _plural(n: int, singular: str) -> str:
@@ -16,20 +27,21 @@ def _plural(n: int, singular: str) -> str:
 # ==================== CHECK-IN ====================
 
 
-def _short_checkin_status(result: CheckinResult) -> str:
-    """Rút gọn status check-in cho table display."""
-    if result.get("status") == "already_claimed":
-        return SYSTEM_MESSAGES["CHECKIN_ALREADY_SHORT"]
-    if result.get("status") == "no_character":
-        return SYSTEM_MESSAGES["CHECKIN_NO_CHARACTER"]
-    if result["success"]:
-        return SYSTEM_MESSAGES["CHECKIN_DAY_SHORT"].format(day=result.get("day"))
-    if result.get("status") == "challenge":
-        return SYSTEM_MESSAGES["CHECKIN_CHALLENGE_SHORT"]
-    return f"✗ {result['message'][:20]}"
+def checkin_label(result: CheckinResult, *, markdown: bool = False) -> str:
+    """Cell của check-in: ASCII cho log, emoji cho job summary."""
+    return CHECKIN_LABELS[result["status"]][markdown].format(day=result.get("day"))
 
 
-def display_checkin(all_results: dict[str, dict[Game, CheckinResult]]) -> None:
+def _checkin_legend() -> str:
+    return SYSTEM_MESSAGES["CHECKIN_LEGEND"].format(
+        claimed=CHECKIN_DAY_LABEL.format(day="<N>"),
+        already=STATUS_OK,
+        skipped=STATUS_SKIPPED,
+        error=STATUS_ERROR,
+    )
+
+
+def display_checkin(all_results: CheckinResults) -> None:
     """Hiển thị kết quả check-in dạng table."""
     log_print(SYSTEM_MESSAGES["SECTION_CHECKIN"])
 
@@ -37,21 +49,60 @@ def display_checkin(all_results: dict[str, dict[Game, CheckinResult]]) -> None:
     if not all_results:
         log_print()
         return
-    acc_w = max(len("Account"), max(len(n) for n in all_results)) + 2
-    col_w = 21
+    rows = {
+        acc_name: [checkin_label(results[game]) for game in games]
+        for acc_name, results in all_results.items()
+    }
+    acc_w = max(len("Account"), max(len(name) for name in rows)) + 2
+    col_w = (
+        max(
+            max(len(game.value.short_name) for game in games),
+            max(len(cell) for cells in rows.values() for cell in cells),
+        )
+        + 2
+    )
 
-    header = f"{'Account':<{acc_w}}"
+    header = f"{INDENT}{'Account':<{acc_w}}"
     for game in games:
-        header += f"  {game.value.name:<{col_w}}"
-    log_print(header)
-
-    for acc_name, results in all_results.items():
-        row = f"{acc_name:<{acc_w}}"
-        for game in games:
-            status = _short_checkin_status(results[game])
-            row += f"  {status:<{col_w}}"
-        log_print(row)
+        header += f"{game.value.short_name:<{col_w}}"
+    log_print(header.rstrip())
+    for acc_name, cells in rows.items():
+        row = f"{INDENT}{acc_name:<{acc_w}}" + "".join(f"{c:<{col_w}}" for c in cells)
+        log_print(row.rstrip())
+    log_print(f"{INDENT}{_checkin_legend()}")
     log_print()
+
+
+# ==================== RESULT ====================
+
+
+def format_result_line(
+    checkin_results: CheckinResults, failures: list[str], seconds: float
+) -> str:
+    statuses = [
+        result["status"]
+        for games in checkin_results.values()
+        for result in games.values()
+    ]
+    return SYSTEM_MESSAGES["RESULT_LINE"].format(
+        verdict=VERDICT_FAILED if failures else VERDICT_OK,
+        ok=sum(status in {"claimed", "already_claimed"} for status in statuses),
+        skipped=statuses.count("no_character"),
+        errors=len(failures),
+        seconds=seconds,
+    )
+
+
+def display_failures(failures: list[str]) -> None:
+    for failure in failures:
+        log_error(SYSTEM_MESSAGES["FAILURE_SCOPE"], failure)
+
+
+def display_result(
+    checkin_results: CheckinResults, failures: list[str], seconds: float
+) -> None:
+    display_failures(failures)
+    log_print(format_result_line(checkin_results, failures, seconds))
 
 
 # ==================== REDEEM ====================
@@ -63,10 +114,12 @@ def display_cdkeys(cdkeys: dict[Game, list[str]]) -> None:
         if codes:
             codes_str = ", ".join(codes)
             log_print(
-                f"  {game.value.name}: {_plural(len(codes), 'code')} [{codes_str}]"
+                f"{INDENT}{game.value.name}: {_plural(len(codes), 'code')} [{codes_str}]"
             )
         else:
-            log_print(f"  {game.value.name}: {SYSTEM_MESSAGES['SYSTEM_NO_CODES']}")
+            log_print(
+                f"{INDENT}{game.value.name}: {SYSTEM_MESSAGES['SYSTEM_NO_CODES']}"
+            )
 
 
 def display_uids(account_uids: dict[str, dict[Game, dict[str, str]]]) -> None:
@@ -80,18 +133,18 @@ def display_uids(account_uids: dict[str, dict[Game, dict[str, str]]]) -> None:
                 uid_info.append(f"{game.value.name}({regions})")
 
         if uid_info:
-            log_print(f"  {acc_name}: {', '.join(uid_info)}")
+            log_print(f"{INDENT}{acc_name}: {', '.join(uid_info)}")
         else:
-            log_print(f"  {acc_name}: {SYSTEM_MESSAGES['SYSTEM_NO_UIDS']}")
+            log_print(f"{INDENT}{acc_name}: {SYSTEM_MESSAGES['SYSTEM_NO_UIDS']}")
 
 
 def _short_redeem_status(res: RedeemResult) -> str:
     """Rút gọn status redeem cho table display."""
     if res.get("success"):
-        return f"✓ {SYSTEM_MESSAGES['REDEEM_SUCCESS']}"
+        return STATUS_OK
     retcode = res.get("retcode")
     prefix = f"[{retcode}] " if retcode is not None else ""
-    return f"✗ {prefix}{res.get('message', 'Error')}"
+    return f"{STATUS_ERROR} {prefix}{res.get('message', 'Error')}"
 
 
 def display_redeem_results(
@@ -155,20 +208,14 @@ def display_redeem(
     account_uids: dict[str, dict[Game, dict[str, str]]],
     errors: list[str] | None = None,
 ) -> None:
-    """Hiển thị header redeem: CDKeys + UIDs (trước khi redeem bắt đầu)."""
-    log_print(SYSTEM_MESSAGES["SECTION_REDEEM"])
-    for error in errors or []:
-        log_error("SYSTEM", error)
-
-    log_print(SYSTEM_MESSAGES["LABEL_CDKEYS"])
-    display_cdkeys(cdkeys)
-
-    total_codes = sum(len(codes) for codes in cdkeys.values())
-    if total_codes == 0:
-        if not errors:
-            log_info("SYSTEM", SYSTEM_MESSAGES["REDEEM_NO_CODES"])
+    """Hiển thị đầu phần redeem: CDKeys + UIDs (trước khi redeem bắt đầu)."""
+    if not any(cdkeys.values()):
+        log_print(SYSTEM_MESSAGES["REDEEM_FETCH_FAILED" if errors else "REDEEM_NONE"])
+        log_print()
         return
 
+    log_print(SYSTEM_MESSAGES["SECTION_REDEEM"])
+    display_cdkeys(cdkeys)
     log_print(SYSTEM_MESSAGES["LABEL_UIDS"])
     display_uids(account_uids)
     log_print()

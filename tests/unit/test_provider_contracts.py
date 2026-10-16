@@ -6,7 +6,7 @@ import runpy
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
@@ -228,20 +228,18 @@ def test_redeem_status_keeps_numeric_error():
         _short_redeem_status(
             {"success": False, "message": "Provider detail", "retcode": -2016}
         )
-        == "✗ [-2016] Provider detail"
+        == "ERR [-2016] Provider detail"
     )
 
 
 def test_fetch_failure_not_displayed_as_no_codes():
+    from src.config import SYSTEM_MESSAGES
     from src.utils.display import display_redeem
 
-    with (
-        patch("src.utils.display.log_error") as error,
-        patch("src.utils.display.log_info") as info,
-    ):
+    with patch("src.utils.display.log_print") as printed:
         display_redeem({}, {}, ["CDKeys: timeout"])
-    error.assert_called_once_with("SYSTEM", "CDKeys: timeout")
-    info.assert_not_called()
+    printed.assert_any_call(SYSTEM_MESSAGES["REDEEM_FETCH_FAILED"])
+    assert call(SYSTEM_MESSAGES["REDEEM_NONE"]) not in printed.call_args_list
 
 
 @pytest.mark.parametrize("data", [None, [], "wrong"])
