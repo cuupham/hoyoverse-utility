@@ -139,25 +139,7 @@ discovery and markers.
 
 ### 5.3. Cách chạy Test
 
-```bash
-# Cài đặt test dependencies
-pip install -r requirements-dev.txt
-
-# Chạy toàn bộ test suite
-python -m pytest
-
-# Chạy với coverage report
-python -m pytest --cov=src --cov-report=term-missing
-
-# Chạy chỉ unit tests
-python -m pytest tests/unit/
-
-# Chạy read-only health checks với live API (cần cookie; không sign/redeem)
-python -m pytest -m live -v
-```
-
-> [!NOTE]
-> CI runs Black, Ruff, strict source mypy and mocked tests with `--cov-fail-under=95` on Python 3.10 and 3.13; the workflow owns exact path filters.
+Commands live in the [README](../README.md#local-development) and [tests/README.md](../tests/README.md); CI is defined by `.github/workflows/test.yml`, which owns the checks, Python versions, coverage gate and path filters.
 
 ---
 

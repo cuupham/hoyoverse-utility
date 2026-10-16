@@ -28,7 +28,7 @@ The executable contracts live in [results.py](../src/models/results.py):
 | Already claimed or newly claimed check-in | Success |
 | Redemption transport/schema failure | Exit 1; independent codes/regions continue |
 | Provider-level redemption rejection | Preserve message/retcode; does not fail an otherwise healthy run |
-| Codes exist but no account has any matching code/game/UID combination | Exit 1 |
+| Codes exist but no account has any matching code/game/UID combination | Report the condition; does not fail an otherwise healthy run |
 | Some accounts/games have no character, while other combinations are eligible | Skip the unmatched combinations; redeem eligible ones normally |
 | Healthy reads with no available codes | Exit 0 |
 

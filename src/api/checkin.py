@@ -3,47 +3,33 @@
 from __future__ import annotations  # Enable forward references for type hints
 
 import asyncio
-import json
 from typing import TYPE_CHECKING
-
-from src.api.request_builder import (
-    build_page_info,
-    build_sign_headers,
-    build_sign_payload,
-)
 
 if TYPE_CHECKING:
     import aiohttp  # Chỉ import khi type checker chạy, không import runtime
 
 from src.api.client import parse_provider_envelope, request_json
-from src.api.request_builder import build_rpc_headers
+from src.api.request_builder import (
+    build_page_info,
+    build_rpc_headers,
+    build_sign_headers,
+    build_sign_params,
+    build_sign_payload,
+    build_source_info,
+)
 from src.config import (
-    ACCOUNT_PAGE_INFO,
     PAGE_NAME_HOME,
     PAGE_NAME_HOME_GAME,
+    RETCODE_ALREADY_SIGNED,
+    RETCODE_INVALID_CREDENTIALS,
+    RETCODE_NO_CHARACTER,
     RPC_LANGUAGE,
     SYSTEM_MESSAGES,
     URLS,
 )
-from src.constants import JSON_SEPARATORS
 from src.models.account import Account
 from src.models.game import Game
 from src.models.results import CheckinInfoResult, CheckinResult, CookieValidationResult
-
-
-def _cookie_check_source_info(account: Account) -> str:
-    """Build x-rpc-source_info cho user_brief_info (theo curl: HomeUserPage, Post, sourceId)."""
-    source_id = account.cookies.get("account_id_v2", "")
-    return json.dumps(
-        {
-            "sourceName": "HomeUserPage",
-            "sourceType": "Post",
-            "sourceId": source_id,
-            "sourceArrangement": "",
-            "sourceGameId": "",
-        },
-        separators=JSON_SEPARATORS,
-    )
 
 
 def _already_claimed_result(info: CheckinInfoResult) -> CheckinResult:
@@ -71,9 +57,11 @@ async def check_cookie(
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        ACCOUNT_PAGE_INFO,
+        build_page_info(page_name=PAGE_NAME_HOME),
         PAGE_NAME_HOME,
-        _cookie_check_source_info(account),
+        build_source_info(
+            "HomeUserPage", "Post", account.cookies.get("account_id_v2", "")
+        ),
     )
 
     result = await request_json(session, URLS["check_cookie"], headers)
@@ -86,7 +74,11 @@ async def check_cookie(
         )
     return CookieValidationResult(
         valid=False,
-        status="invalid_credentials" if parsed.retcode == -100 else "check_failed",
+        status=(
+            "invalid_credentials"
+            if parsed.retcode == RETCODE_INVALID_CREDENTIALS
+            else "check_failed"
+        ),
         email_mask=None,
         error=parsed.error or SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
     )
@@ -154,7 +146,11 @@ async def do_checkin(
     if info["error"]:
         result = CheckinResult(
             success=False,
-            status="no_character" if info.get("retcode") == -10002 else "failed",
+            status=(
+                "no_character"
+                if info.get("retcode") == RETCODE_NO_CHARACTER
+                else "failed"
+            ),
             day=None,
             message=info["error"],
             error_kind=info.get("error_kind"),
@@ -167,16 +163,14 @@ async def do_checkin(
     if info["is_sign"]:
         return _already_claimed_result(info)
 
-    # Build game-specific transport details in the API adapter.
     headers = build_sign_headers(account, game, PAGE_NAME_HOME_GAME)
-    json_data = build_sign_payload(game_info)
 
     sign_result = await request_json(
         session,
         URLS["checkin_sign"][game_info.code],
         headers,
-        json_data=json_data,
-        params={"lang": RPC_LANGUAGE} if game is Game.GENSHIN else None,
+        json_data=build_sign_payload(game),
+        params=build_sign_params(game),
         method="POST",
         retry=False,
     )
@@ -187,7 +181,7 @@ async def do_checkin(
         if (
             parsed.error_kind
             in {"timeout", "network", "http_error", "invalid_json", "invalid_response"}
-            or parsed.retcode == -5003
+            or parsed.retcode == RETCODE_ALREADY_SIGNED
         ):
             reconciled = await _reconcile_sign(session, account, game)
             if reconciled is not None:

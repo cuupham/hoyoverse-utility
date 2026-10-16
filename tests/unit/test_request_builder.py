@@ -4,7 +4,9 @@ from src.api.request_builder import (
     build_page_info,
     build_rpc_headers,
     build_sign_headers,
+    build_sign_params,
     build_sign_payload,
+    build_source_info,
 )
 from src.models.game import REGIONS, Game
 from src.utils.timekeeping import unix_ms
@@ -26,7 +28,7 @@ class TestBuildRpcHeaders:
         )
         assert headers["x-rpc-signgame"] == "hkrpg"
 
-    def test_without_game_no_sign_game(self, mock_account):
+    def test_genshin_sign_game(self, mock_account):
         headers = build_rpc_headers(
             mock_account, "hoyolab", "{}", "Page", game=Game.GENSHIN
         )
@@ -40,16 +42,16 @@ class TestBuildRpcHeaders:
 
 class TestSignRequestBuilder:
     def test_build_sign_payload_genshin(self):
-        gs = Game.GENSHIN.value
-        payload = build_sign_payload(gs)
+        payload = build_sign_payload(Game.GENSHIN)
         assert "act_id" in payload
-        assert "lang" not in payload  # Genshin doesn't include lang
+        assert "lang" not in payload
+        assert build_sign_params(Game.GENSHIN) == {"lang": "en-us"}
 
     def test_build_sign_payload_star_rail(self):
-        sr = Game.STAR_RAIL.value
-        payload = build_sign_payload(sr)
+        payload = build_sign_payload(Game.STAR_RAIL)
         assert "act_id" in payload
         assert payload["lang"] == "en-us"
+        assert build_sign_params(Game.STAR_RAIL) is None
 
     def test_build_sign_headers_genshin_specific(self, mock_account):
         headers = build_sign_headers(mock_account, Game.GENSHIN, "TestPage")
@@ -68,6 +70,22 @@ class TestSignRequestBuilder:
 
         data = json.loads(build_page_info(gs, "OtherPage"))
         assert data["pageArrangement"] == ""  # not "Hot"
+
+    def test_build_page_info_account_wide(self):
+        import json
+
+        data = json.loads(build_page_info(page_name="HomePage"))
+        assert data["pageType"] == ""
+        assert data["gameId"] == ""
+        assert data["pageArrangement"] == ""
+
+    def test_build_source_info(self):
+        import json
+
+        data = json.loads(build_source_info("HomeUserPage", "Post", "42"))
+        assert data["sourceName"] == "HomeUserPage"
+        assert data["sourceId"] == "42"
+        assert json.loads(build_source_info())["sourceName"] == ""
 
     def test_regions_completeness(self):
         """Mỗi game phải có 4 regions"""

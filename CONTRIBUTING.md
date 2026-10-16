@@ -21,13 +21,9 @@ Full instructions live in the [README](README.md#local-development) — they mus
 python -m venv .venv
 .\.venv\Scripts\activate        # Windows
 pip install -r requirements-dev.txt
-
-# Tests use mock data — no cookie required
-python -m black --check src tests
-python -m ruff check src tests
-python -m mypy src
-python -m pytest tests/unit tests/integration --cov=src --cov-report=term-missing --cov-fail-under=95
 ```
+
+Checks and test commands match [`.github/workflows/test.yml`](.github/workflows/test.yml); tests use mock data, no cookie required.
 
 Live API-health tests additionally need real cookies — set `ACC_1` in your environment or create `tests/auth/.env.ps1`. Never commit yours (see [`tests/auth/cookies.ps1.example`](tests/auth/cookies.ps1.example)).
 

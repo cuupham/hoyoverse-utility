@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING
-
-from src.api.request_builder import build_page_info
 
 if TYPE_CHECKING:
     import aiohttp
 
 from src.api.client import parse_provider_envelope, request_json
-from src.api.request_builder import build_rpc_headers
-from src.config import ACCOUNT_PAGE_INFO, PAGE_NAME_HOME, SYSTEM_MESSAGES, URLS
+from src.api.request_builder import build_page_info, build_rpc_headers
+from src.config import PAGE_NAME_HOME, SYSTEM_MESSAGES, URLS
 from src.models.account import Account
 from src.models.game import GAME_BY_BIZ, REGION_CODE_BY_VALUE, Game
 from src.models.results import ProviderResult
@@ -96,15 +93,6 @@ async def fetch_cdkeys(
     return ProviderResult(codes, retcode=0)
 
 
-async def fetch_all_cdkeys(
-    session: aiohttp.ClientSession, account: Account
-) -> dict[Game, ProviderResult[list[str]]]:
-    """Fetch tất cả CDKeys cho 3 games song song."""
-    tasks = [fetch_cdkeys(session, account, game) for game in Game]
-    results = await asyncio.gather(*tasks)
-    return dict(zip(Game, results))
-
-
 async def fetch_all_uids(
     session: aiohttp.ClientSession, account: Account
 ) -> ProviderResult[dict[Game, dict[str, str]]]:
@@ -122,7 +110,7 @@ async def fetch_all_uids(
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        ACCOUNT_PAGE_INFO,
+        build_page_info(page_name=PAGE_NAME_HOME),
         page_name=PAGE_NAME_HOME,
     )
 

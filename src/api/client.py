@@ -172,8 +172,6 @@ async def request_json(
     if json_data:
         kwargs["json"] = json_data
 
-    last_error: str = "Unknown error"
-
     # Some HoYoLAB GET routes mutate state; their callers explicitly disable retry.
     attempts = max_attempts if retry and method.upper() in {"GET", "HEAD"} else 1
     failure: HttpCallResult = {

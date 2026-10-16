@@ -71,6 +71,16 @@ class TestShortCheckinStatus:
         }
         assert _short_checkin_status(result) == SYSTEM_MESSAGES["CHECKIN_ALREADY_SHORT"]
 
+    def test_challenge_uses_dedicated_short_label(self):
+        result = {
+            "success": False,
+            "status": "challenge",
+            "message": SYSTEM_MESSAGES["CHECKIN_CHALLENGE"],
+        }
+        assert (
+            _short_checkin_status(result) == SYSTEM_MESSAGES["CHECKIN_CHALLENGE_SHORT"]
+        )
+
     def test_other_error_truncated(self):
         result = {"success": False, "message": "A" * 50}
         status = _short_checkin_status(result)

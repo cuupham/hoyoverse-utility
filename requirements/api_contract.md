@@ -20,7 +20,7 @@ Transport success means a successful HTTP status and decoded JSON. The provider 
 
 Owner: [check_cookie](../src/api/checkin.py), URLS.check_cookie, GET.
 
-Uses account-wide ACCOUNT_PAGE_INFO and source information for the account. It does not send an app-version header. A valid response requires retcode 0 and a nonempty string email_mask. The known login rejection (-100) produces invalid_credentials; transport/schema/other provider failures produce check_failed. Validation failures carry their message to the CLI and cannot silently disappear behind the valid-account list.
+Uses account-wide page information (build_page_info without a game) and source information for the account. It does not send an app-version header. A valid response requires retcode 0 and a nonempty string email_mask. The known login rejection (-100) produces invalid_credentials; transport/schema/other provider failures produce check_failed. Validation failures carry their message to the CLI and cannot silently disappear behind the valid-account list.
 
 ## Check-in information and sign
 
@@ -28,7 +28,7 @@ Owner: [checkin.py](../src/api/checkin.py), URLS.checkin_info / URLS.checkin_sig
 
 Info GET supplies act_id and RPC_LANGUAGE, with signgame derived from the selected game. It requires a real boolean is_sign and a nonnegative integer total_sign_day. The known no-character retcode (-10002) is classified at this API boundary; presentation never guesses from English text.
 
-Sign POST is one attempt. Game-specific requests are built by build_sign_headers/build_sign_payload:
+Sign POST is one attempt. Game-specific requests are built by build_sign_headers, build_sign_payload and build_sign_params:
 
 - Genshin sends its activity ID in JSON and RPC_LANGUAGE as a query parameter, plus its existing specific content-type and empty app-version/device-name fields.
 - Star Rail and ZZZ include the language in JSON.

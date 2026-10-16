@@ -70,9 +70,9 @@ ACC_2     ✓ Already claimed  ✓ Already claimed   — No character yet
 --- REDEEM CODE ---
 Genshin Impact: 3 codes [ABC, DEF, XYZ]
 Account   Region  ABC           DEF           XYZ
-ACC_1     asia    ✓ Success     ✓ Success     ✗ Provider message (-2017)
-ACC_2     asia    ✓ Success     ✓ Success     ✗ Provider message (-2017)
-          usa     ✓ Success     ✓ Success     ✗ Provider message (-2017)
+ACC_1     asia    ✓ Success     ✓ Success     ✗ [-2017] Provider message
+ACC_2     asia    ✓ Success     ✓ Success     ✗ [-2017] Provider message
+          usa     ✓ Success     ✓ Success     ✗ [-2017] Provider message
 
 DONE - elapsed
 ```
@@ -136,7 +136,7 @@ Re-grab the cookie from HoYoLab and make sure it contains `_MHYUUID`, `_HYVUUID`
 
 **No accounts found**
 ```
-ERROR: No accounts found in environment variables!
+[SYSTEM] No accounts found in environment variables!
 ```
 Check that secret names match exactly (`ACC_1`, `ACC_2`, …) and re-run the workflow manually.
 

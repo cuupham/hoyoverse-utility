@@ -38,9 +38,10 @@ class Account:
             pair = pair.strip()
             if "=" in pair:
                 key, value = pair.split("=", 1)
-                if key.strip() in cookies:
-                    raise ValueError(f"{name}: Duplicate cookie key: {key.strip()}")
-                cookies[key.strip()] = value.strip()
+                key, value = key.strip(), value.strip()
+                if key in REQUIRED_COOKIE_KEYS and cookies.get(key, value) != value:
+                    raise ValueError(f"{name}: Conflicting cookie key: {key}")
+                cookies[key] = value
 
         # Kiểm tra required keys
         missing = [k for k in REQUIRED_COOKIE_KEYS if not cookies.get(k)]

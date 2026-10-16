@@ -89,9 +89,6 @@ async def _fetch_cdkeys_with_fallback(
 
     async def fetch_game(game: Game) -> ProviderResult[list[str]]:
         empty_success = False
-        result: ProviderResult[list[str]] = ProviderResult(
-            [], error="No accounts available"
-        )
         for account in accounts:
             result = await fetch_cdkeys(session, account, game)
             if result.success:
@@ -236,8 +233,7 @@ async def main() -> None:
                     for result in codes.values()
                 )
             else:
-                log_error("SYSTEM", SYSTEM_MESSAGES["REDEEM_NO_UIDS"])
-                failed_run = True
+                log_print(SYSTEM_MESSAGES["REDEEM_NO_ELIGIBLE"])
 
     log_print("=" * HEADER_WIDTH)
     log_print(f"DONE - {ctx.elapsed_seconds:.1f}s")

@@ -16,7 +16,7 @@ from src.config import (
     RPC_SHOW_TRANSLATED,
     RPC_SYS_VERSION,
 )
-from src.constants import DEFAULT_CHROME_VERSION, DEFAULT_SOURCE_INFO, JSON_SEPARATORS
+from src.constants import DEFAULT_CHROME_VERSION, JSON_SEPARATORS
 from src.models.account import Account
 from src.models.game import Game, GameInfo
 from src.utils.timekeeping import current_hour, rpc_weekday
@@ -46,14 +46,32 @@ def generate_browser_headers() -> dict[str, str]:
 BROWSER_HEADERS = generate_browser_headers()
 
 
-def build_page_info(game_info: GameInfo, page_name: str = PAGE_NAME_HOME_GAME) -> str:
+def build_page_info(
+    game_info: GameInfo | None = None, page_name: str = PAGE_NAME_HOME_GAME
+) -> str:
+    """Account-wide page metadata when game_info is None."""
     return json.dumps(
         {
             "pageName": page_name,
-            "pageType": game_info.page_type,
+            "pageType": game_info.page_type if game_info else "",
             "pageId": "",
             "pageArrangement": "Hot" if page_name == PAGE_NAME_HOME_GAME else "",
-            "gameId": game_info.game_id,
+            "gameId": game_info.game_id if game_info else "",
+        },
+        separators=JSON_SEPARATORS,
+    )
+
+
+def build_source_info(
+    name: str = "", source_type: str = "", source_id: str = ""
+) -> str:
+    return json.dumps(
+        {
+            "sourceName": name,
+            "sourceType": source_type,
+            "sourceId": source_id,
+            "sourceArrangement": "",
+            "sourceGameId": "",
         },
         separators=JSON_SEPARATORS,
     )
@@ -64,7 +82,7 @@ def build_rpc_headers(
     origin_key: Literal["hoyolab", "act_hoyolab"],
     page_info: str,
     page_name: str,
-    source_info: str = DEFAULT_SOURCE_INFO,
+    source_info: str | None = None,
     game: Game | None = None,
 ) -> dict[str, str]:
     headers = {
@@ -80,7 +98,7 @@ def build_rpc_headers(
         "x-rpc-page_info": page_info,
         "x-rpc-page_name": page_name,
         "x-rpc-show-translated": RPC_SHOW_TRANSLATED,
-        "x-rpc-source_info": source_info,
+        "x-rpc-source_info": source_info or build_source_info(),
         "x-rpc-sys_version": RPC_SYS_VERSION,
         "x-rpc-timezone": DEFAULT_TIMEZONE,
         "x-rpc-weekday": rpc_weekday(),
@@ -90,11 +108,16 @@ def build_rpc_headers(
     return headers
 
 
-def build_sign_payload(game_info: GameInfo) -> dict[str, str]:
-    payload = {"act_id": game_info.act_id}
-    if game_info.code != "gs":
+def build_sign_payload(game: Game) -> dict[str, str]:
+    payload = {"act_id": game.value.act_id}
+    if game is not Game.GENSHIN:
         payload["lang"] = RPC_LANGUAGE
     return payload
+
+
+def build_sign_params(game: Game) -> dict[str, str] | None:
+    """Genshin sends lang in the query string; the other games in the body."""
+    return {"lang": RPC_LANGUAGE} if game is Game.GENSHIN else None
 
 
 def build_sign_headers(account: Account, game: Game, page_name: str) -> dict[str, str]:

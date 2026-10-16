@@ -24,6 +24,8 @@ def _short_checkin_status(result: CheckinResult) -> str:
         return SYSTEM_MESSAGES["CHECKIN_NO_CHARACTER"]
     if result["success"]:
         return SYSTEM_MESSAGES["CHECKIN_DAY_SHORT"].format(day=result.get("day"))
+    if result.get("status") == "challenge":
+        return SYSTEM_MESSAGES["CHECKIN_CHALLENGE_SHORT"]
     return f"✗ {result['message'][:20]}"
 
 

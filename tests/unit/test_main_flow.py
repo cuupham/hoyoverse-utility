@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 import src.main as main_module
+from src.config import SYSTEM_MESSAGES
 from src.models.game import Game
 from src.models.results import AccountValidationResult, ProviderResult, RedemptionData
 
@@ -316,8 +317,9 @@ class TestMainExitPaths:
             mock_display.assert_called_once_with(redeem_results)
 
     @pytest.mark.asyncio
-    async def test_full_flow_with_codes_no_uids(self, mock_account, valid_cookie):
-        """Full flow khi có codes nhưng không có UIDs"""
+    async def test_codes_without_matching_uids_is_not_a_failure(
+        self, mock_account, valid_cookie
+    ):
         mock_session = AsyncMock()
         mock_session.__aenter__.return_value = mock_session
         cdkeys = {Game.GENSHIN: ["CODE1"], Game.STAR_RAIL: [], Game.ZZZ: []}
@@ -347,10 +349,14 @@ class TestMainExitPaths:
                 "src.main.run_redeem_for_all", new_callable=AsyncMock, return_value={}
             ),
             patch("src.main.log_error") as mock_error,
-            pytest.raises(SystemExit, match="1"),
+            patch("src.main.log_print") as mock_print,
         ):
             await main_module.main()
-        assert any("UID" in str(c) for c in mock_error.call_args_list)
+        mock_error.assert_not_called()
+        assert any(
+            SYSTEM_MESSAGES["REDEEM_NO_ELIGIBLE"] in str(c)
+            for c in mock_print.call_args_list
+        )
 
 
 class TestFetchRedemptionDataEmpty:

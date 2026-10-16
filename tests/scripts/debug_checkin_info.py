@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from src.api.checkin import check_cookie, get_checkin_info
 from src.api.client import create_session
 from src.api.redeem_fetch import fetch_all_uids
+from src.config import RETCODE_NO_CHARACTER
 from src.models.game import Game
 from tests.support.accounts import load_live_accounts
 
@@ -43,7 +44,9 @@ async def debug_checkin_info() -> int:
                 print(f"{game.value.name}: regions={regions}")
                 info = await get_checkin_info(session, account, game)
                 print(json.dumps(info, ensure_ascii=True))
-                failed = failed or bool(info["error"] and info.get("retcode") != -10002)
+                failed = failed or bool(
+                    info["error"] and info.get("retcode") != RETCODE_NO_CHARACTER
+                )
     return int(failed)
 
 

@@ -5,13 +5,11 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
-from src.api.request_builder import build_page_info
-
 if TYPE_CHECKING:
     import aiohttp
 
 from src.api.client import parse_provider_envelope, request_json
-from src.api.request_builder import build_rpc_headers
+from src.api.request_builder import build_page_info, build_rpc_headers
 from src.config import (
     PAGE_NAME_HOME_GAME,
     REDEEM_DELAY_SECONDS,

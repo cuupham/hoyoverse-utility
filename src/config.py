@@ -1,9 +1,6 @@
 """Centralized configuration - Tất cả constants và settings"""
 
-import json
 from typing import TypedDict
-
-from src.constants import JSON_SEPARATORS
 
 # ==================== COMMON HEADERS ====================
 COMMON_HEADERS = {
@@ -76,9 +73,8 @@ URLS: ApiUrls = {
 SEMAPHORE_LIMIT = 20  # Max concurrent requests
 REDEEM_DELAY_SECONDS = 5  # Seconds between redeem codes
 REQUEST_TIMEOUT_SECONDS = 30  # Maximum timeout for an individual attempt
-MIN_ATTEMPT_TIMEOUT_SECONDS = (
-    15  # Floor timeout per attempt (prevent premature timeouts)
-)
+# Floor timeout per attempt (prevent premature timeouts)
+MIN_ATTEMPT_TIMEOUT_SECONDS = 15
 CONNECT_TIMEOUT_SECONDS = 10  # Connection timeout
 MAX_ATTEMPTS = 3  # Total attempts, including the initial request
 RATE_LIMIT_DELAY_SECONDS = 5  # Seconds to wait when rate limited (429)
@@ -91,7 +87,7 @@ CONNECTOR_LIMIT_PER_HOST = 10
 # Display: độ rộng dòng header/footer (số ký tự "=")
 HEADER_WIDTH = 50
 
-# ==================== RPC HEADER VALUES (single source - dùng trong checkin, helpers, API) ====================
+# ==================== RPC HEADER VALUES (single source - dùng trong request_builder) ====================
 RPC_LANGUAGE = "en-us"
 RPC_CLIENT_TYPE = "4"
 RPC_SYS_VERSION = "Windows NT 10.0"
@@ -102,23 +98,13 @@ PAGE_NAME_HOME = "HomePage"
 # Lang param cho redeem API (khác RPC_LANGUAGE)
 REDEEM_LANG = "en"
 
-# Cookie check: page_info static (account-wide, không gắn game)
-ACCOUNT_PAGE_INFO = json.dumps(
-    {
-        "pageName": PAGE_NAME_HOME,
-        "pageType": "",
-        "pageId": "",
-        "pageArrangement": "",
-        "gameId": "",
-    },
-    separators=JSON_SEPARATORS,
-)
+# ==================== PROVIDER RETCODES ====================
+RETCODE_INVALID_CREDENTIALS = -100
+RETCODE_NO_CHARACTER = -10002
+RETCODE_ALREADY_SIGNED = -5003
 
-# Account-wide page metadata is shared by cookie validation and role discovery.
-
-# NOTE: x-rpc-app_version cố tình KHÔNG gửi cho cookie check (user_brief_info).
-# Đã verify (browser, account thật): header này không tham gia chữ ký DS và không
-# ảnh hưởng kết quả — có/không/cũ/mới đều trả về như nhau. Bỏ hẳn theo KISS/YAGNI.
+# x-rpc-app_version cố tình KHÔNG gửi cho cookie check (user_brief_info): đã
+# verify trên account thật, header này không ảnh hưởng kết quả.
 
 # ==================== SYSTEM_MESSAGES ====================
 SYSTEM_MESSAGES = {
@@ -131,12 +117,13 @@ SYSTEM_MESSAGES = {
     "CHECKIN_SUCCESS": "Điểm danh thành công",
     "CHECKIN_ALREADY": "Đã điểm danh trước đó",
     "CHECKIN_CHALLENGE": "Cần xác minh trên trang điểm danh HoYoLAB",
+    "CHECKIN_CHALLENGE_SHORT": "✗ Cần xác minh",
     "VALIDATION_VALID": "Hợp lệ",
     "VALIDATION_ALL_FAILED": "Không thể xác thực account nào; xem lỗi từng account.",
     "VALIDATION_NONE_FOUND": "Không tìm thấy account nào trong environment variables!",
     "VALIDATION_NONE_VALID": "Không có account nào hợp lệ để tiếp tục!",
     "REDEEM_NO_CODES": "Không có codes nào để redeem",
-    "REDEEM_NO_UIDS": "Tất cả accounts đều không có UID - không thể redeem!",
+    "REDEEM_NO_ELIGIBLE": "Không có account nào có UID cho game đang có code",
     "SYSTEM_NO_CODES": "Không có codes",
     "SYSTEM_NO_UIDS": "Không có UID nào",
     # Display section headers

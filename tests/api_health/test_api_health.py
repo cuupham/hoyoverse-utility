@@ -13,6 +13,7 @@ import pytest
 
 from src.api.checkin import check_cookie, get_checkin_info
 from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
+from src.config import RETCODE_NO_CHARACTER
 from src.models.game import Game
 
 # Tất cả tests trong file này đều cần marker live
@@ -58,7 +59,7 @@ class TestCheckinInfoEndpoints:
         result = await get_checkin_info(live_session, live_account, game)
 
         # Nếu account không chơi game này → error "No character" là valid response
-        if result.get("retcode") == -10002:
+        if result.get("retcode") == RETCODE_NO_CHARACTER:
             pytest.skip(f"{live_account.name} không chơi {game.value.name}")
 
         assert (

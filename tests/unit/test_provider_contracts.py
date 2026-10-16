@@ -412,11 +412,18 @@ async def test_malformed_roles_are_an_error(mock_account, roles):
         assert not (await fetch_all_uids(None, mock_account)).success
 
 
-def test_duplicate_cookie_key_rejected(mock_account):
-    with pytest.raises(ValueError, match="Duplicate cookie key"):
+def test_conflicting_required_cookie_rejected(mock_account):
+    with pytest.raises(ValueError, match="Conflicting cookie key"):
         Account.from_cookie_string(
             "AUDIT", mock_account.cookie_str + "; _MHYUUID=other"
         )
+
+
+def test_repeated_optional_cookie_keeps_last_value(mock_account):
+    account = Account.from_cookie_string(
+        "AUDIT", mock_account.cookie_str + "; mi18nLang=en; mi18nLang=vi"
+    )
+    assert account.cookies["mi18nLang"] == "vi"
 
 
 async def test_health_assertion_rejects_transport_failure(mock_account):
