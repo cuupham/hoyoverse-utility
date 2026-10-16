@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 import src.main as main_module
-from src.config import SYSTEM_MESSAGES
+from src.config import STATUS_ERROR, SYSTEM_MESSAGES
 from src.models.game import Game
 from src.models.results import AccountValidationResult, ProviderResult, RedemptionData
 
@@ -438,7 +438,7 @@ class TestValidateAccountsOutput:
 
         assert lines[0] == "ACCOUNTS  1/2 hợp lệ"
         assert lines[1].split() == ["ACC_1", "v****@example.com"]
-        assert lines[2].split() == ["ACC_2", "ERR"]
+        assert lines[2].split() == ["ACC_2", STATUS_ERROR]
         assert result.errors == ["ACC_2 · expired"]
 
 

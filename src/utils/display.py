@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 from src.config import (
-    CHECKIN_DAY_LABEL,
     CHECKIN_LABELS,
     STATUS_ERROR,
-    STATUS_OK,
-    STATUS_SKIPPED,
     SYSTEM_MESSAGES,
     VERDICT_FAILED,
     VERDICT_OK,
@@ -28,17 +25,10 @@ def _plural(n: int, singular: str) -> str:
 
 
 def checkin_label(result: CheckinResult, *, markdown: bool = False) -> str:
-    """Cell của check-in: ASCII cho log, emoji cho job summary."""
-    return CHECKIN_LABELS[result["status"]][markdown].format(day=result.get("day"))
-
-
-def _checkin_legend() -> str:
-    return SYSTEM_MESSAGES["CHECKIN_LEGEND"].format(
-        claimed=CHECKIN_DAY_LABEL.format(day="<N>"),
-        already=STATUS_OK,
-        skipped=STATUS_SKIPPED,
-        error=STATUS_ERROR,
-    )
+    """Cell của check-in; job summary thêm icon phía trước."""
+    text, icon = CHECKIN_LABELS[result["status"]]
+    label = text.format(day=result.get("day"))
+    return f"{icon} {label}" if markdown else label
 
 
 def display_checkin(all_results: CheckinResults) -> None:
@@ -69,7 +59,6 @@ def display_checkin(all_results: CheckinResults) -> None:
     for acc_name, cells in rows.items():
         row = f"{INDENT}{acc_name:<{acc_w}}" + "".join(f"{c:<{col_w}}" for c in cells)
         log_print(row.rstrip())
-    log_print(f"{INDENT}{_checkin_legend()}")
     log_print()
 
 
@@ -141,7 +130,7 @@ def display_uids(account_uids: dict[str, dict[Game, dict[str, str]]]) -> None:
 def _short_redeem_status(res: RedeemResult) -> str:
     """Rút gọn status redeem cho table display."""
     if res.get("success"):
-        return STATUS_OK
+        return SYSTEM_MESSAGES["REDEEM_SUCCESS"]
     retcode = res.get("retcode")
     prefix = f"[{retcode}] " if retcode is not None else ""
     return f"{STATUS_ERROR} {prefix}{res.get('message', 'Error')}"

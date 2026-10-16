@@ -126,8 +126,7 @@ SYSTEM_MESSAGES = {
     "REDEEM_FETCH_FAILED": "REDEEM  không lấy được dữ liệu (xem LỖI)",
     "LABEL_UIDS": "UIDs:",
     "FAILURE_SCOPE": "LỖI",
-    "CHECKIN_LEGEND": "{claimed} vừa điểm danh · {already} đã điểm danh trước · {skipped} chưa có nhân vật · {error} lỗi",
-    "RESULT_LINE": "KẾT QUẢ  {verdict} · {ok} điểm danh · {skipped} chưa có nhân vật · {errors} lỗi · {seconds:.1f}s",
+    "RESULT_LINE": "KẾT QUẢ  {verdict} · {ok} điểm danh · {skipped} chưa tạo nhân vật · {errors} lỗi · {seconds:.1f}s",
     "ERR_NETWORK": "Network connection failed",
     "ERR_TIMEOUT": "Request timed out",
     "ERR_INVALID_JSON": "Response not JSON",
@@ -136,19 +135,15 @@ SYSTEM_MESSAGES = {
 }
 
 # ==================== STATUS LABELS ====================
-# ASCII keeps table columns aligned in the GitHub log font.
-STATUS_OK = "ok"
-STATUS_SKIPPED = "--"
-STATUS_ERROR = "ERR"
-CHECKIN_DAY_LABEL = "d{day}"
-VERDICT_OK = "OK"
-VERDICT_FAILED = "FAILED"
+STATUS_ERROR = "LỖI"
+VERDICT_OK = "THÀNH CÔNG"
+VERDICT_FAILED = "THẤT BẠI"
 
-# Check-in status -> (log table cell, job summary cell)
+# Check-in status -> (table cell, job summary icon)
 CHECKIN_LABELS = {
-    "claimed": (CHECKIN_DAY_LABEL, "✅ Ngày {day}"),
-    "already_claimed": (STATUS_OK, "✅ Đã điểm danh"),
-    "no_character": (STATUS_SKIPPED, "➖ Chưa có nhân vật"),
-    "challenge": (STATUS_ERROR, "❌ Cần xác minh"),
-    "failed": (STATUS_ERROR, "❌ Lỗi"),
+    "claimed": ("Ngày {day}", "✅"),
+    "already_claimed": ("Đã điểm danh", "✅"),
+    "no_character": ("Chưa tạo nhân vật", "➖"),
+    "challenge": ("Cần xác minh", "❌"),
+    "failed": (STATUS_ERROR, "❌"),
 }

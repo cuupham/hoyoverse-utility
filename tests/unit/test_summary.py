@@ -1,5 +1,6 @@
 """Tests cho summary.py - GitHub job summary"""
 
+from src.config import VERDICT_FAILED
 from src.models.game import Game
 from src.utils.summary import SUMMARY_PATH_ENV, build_summary, write_job_summary
 
@@ -31,7 +32,7 @@ class TestBuildSummary:
     def test_failures_are_listed(self):
         summary = build_summary(RESULTS, ["ACC_1 · boom"], 1.0)
         assert "- ACC_1 · boom" in summary
-        assert "FAILED" in summary.splitlines()[0]
+        assert VERDICT_FAILED in summary.splitlines()[0]
 
     def test_no_failure_section_when_clean(self):
         assert "\n- " not in build_summary(RESULTS, [], 1.0)

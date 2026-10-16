@@ -6,8 +6,6 @@ from unittest.mock import patch
 from src.config import (
     CHECKIN_LABELS,
     STATUS_ERROR,
-    STATUS_OK,
-    STATUS_SKIPPED,
     SYSTEM_MESSAGES,
     VERDICT_FAILED,
     VERDICT_OK,
@@ -49,34 +47,38 @@ class TestCheckinLabel:
         assert set(CHECKIN_LABELS) == set(get_args(CheckinStatus))
 
     def test_already_claimed(self):
-        assert checkin_label(_result("already_claimed", day=14)) == STATUS_OK
+        assert checkin_label(_result("already_claimed", day=14)) == "Đã điểm danh"
 
     def test_claimed_shows_day(self):
-        assert checkin_label(_result("claimed", day=15)) == "d15"
+        assert checkin_label(_result("claimed", day=15)) == "Ngày 15"
 
     def test_no_character_is_independent_of_provider_message(self):
         result = _result("no_character", message="Translated provider text")
-        assert checkin_label(result) == STATUS_SKIPPED
+        assert checkin_label(result) == "Chưa tạo nhân vật"
 
     def test_failed_message_is_not_reclassified(self):
         result = _result("failed", message="Character service unavailable")
         assert checkin_label(result) == STATUS_ERROR
 
-    def test_challenge_is_an_error(self):
-        assert checkin_label(_result("challenge")) == STATUS_ERROR
+    def test_challenge_asks_for_verification(self):
+        assert checkin_label(_result("challenge")) == "Cần xác minh"
 
-    def test_markdown_labels_use_emoji(self):
+    def test_markdown_labels_prefix_the_icon(self):
         assert checkin_label(_result("claimed", day=3), markdown=True) == "✅ Ngày 3"
-        assert checkin_label(_result("failed"), markdown=True).startswith("❌")
+        assert checkin_label(_result("failed"), markdown=True) == f"❌ {STATUS_ERROR}"
 
-    def test_log_labels_are_ascii(self):
-        for log_label, _ in CHECKIN_LABELS.values():
-            assert log_label.isascii()
+    def test_labels_are_self_explanatory(self):
+        """Không dùng mã viết tắt: người đọc log không cần bảng chú thích."""
+        for text, _ in CHECKIN_LABELS.values():
+            assert text == STATUS_ERROR or len(text) > 5
 
 
 class TestShortRedeemStatus:
     def test_success(self):
-        assert _short_redeem_status({"success": True, "message": "OK"}) == STATUS_OK
+        assert (
+            _short_redeem_status({"success": True, "message": "OK"})
+            == SYSTEM_MESSAGES["REDEEM_SUCCESS"]
+        )
 
     def test_failed(self):
         status = _short_redeem_status({"success": False, "message": "Đã sử dụng"})
@@ -116,8 +118,10 @@ class TestDisplayCheckin:
         row = next(line for line in lines if "ACC_1" in line)
         for game in Game:
             assert game.value.short_name in header
-        assert row.split() == ["ACC_1", STATUS_OK, "d5", STATUS_SKIPPED]
-        assert any(STATUS_ERROR in line and "lỗi" in line for line in lines)
+        assert row.split(maxsplit=1)[0] == "ACC_1"
+        for cell in ("Đã điểm danh", "Ngày 5", "Chưa tạo nhân vật"):
+            assert cell in row
+        assert not any("vừa điểm danh" in line for line in lines)
 
     def test_columns_align_with_header(self):
         results = {
@@ -177,7 +181,7 @@ class TestResult:
         line = format_result_line(self.RESULTS, [], 3.14)
         assert line.startswith(f"KẾT QUẢ  {VERDICT_OK}")
         assert "3 điểm danh" in line
-        assert "1 chưa có nhân vật" in line
+        assert "1 chưa tạo nhân vật" in line
         assert "0 lỗi" in line
         assert line.endswith("3.1s")
 

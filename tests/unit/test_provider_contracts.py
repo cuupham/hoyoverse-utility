@@ -15,7 +15,7 @@ from src.api.checkin import check_cookie, do_checkin
 from src.api.client import _retry_after, parse_provider_envelope, request_json
 from src.api.redeem_exchange import exchange_cdkey, redeem_codes_for_region
 from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
-from src.config import URLS
+from src.config import STATUS_ERROR, URLS
 from src.models.account import Account
 from src.models.game import Game
 from src.models.results import ProviderResult
@@ -228,7 +228,7 @@ def test_redeem_status_keeps_numeric_error():
         _short_redeem_status(
             {"success": False, "message": "Provider detail", "retcode": -2016}
         )
-        == "ERR [-2016] Provider detail"
+        == f"{STATUS_ERROR} [-2016] Provider detail"
     )
 
 

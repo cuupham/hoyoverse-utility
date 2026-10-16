@@ -65,10 +65,9 @@ ACCOUNTS  2/2 valid
   ACC_2  b****@example.com
 
 CHECK-IN
-  Account  GI   HSR  ZZZ
-  ACC_1    d15  ok   ok
-  ACC_2    ok   ok   --
-  d<N> claimed today · ok already claimed · -- no character yet · ERR failed
+  Account  GI                 HSR                ZZZ
+  ACC_1    Day 15             Already claimed    Already claimed
+  ACC_2    Already claimed    Already claimed    No character yet
 
 REDEEM
   Genshin Impact: 3 codes [ABC, DEF, XYZ]
@@ -77,12 +76,12 @@ UIDs:
   ACC_2: Genshin Impact(asia, usa)
 
 [Genshin Impact]
-Account   Region  ABC   DEF   XYZ
-ACC_1     asia    ok    ok    ERR [-2017] Provider message
-ACC_2     asia    ok    ok    ERR [-2017] Provider message
-          usa     ok    ok    ERR [-2017] Provider message
+Account   Region  ABC         DEF         XYZ
+ACC_1     asia    Success     Success     ERROR [-2017] Provider message
+ACC_2     asia    Success     Success     ERROR [-2017] Provider message
+          usa     Success     Success     ERROR [-2017] Provider message
 
-RESULT  OK · 5 checked in · 1 no character yet · 0 errors · 4.2s
+RESULT  SUCCESS · 5 checked in · 1 no character yet · 0 errors · 4.2s
 ```
 
 </details>
