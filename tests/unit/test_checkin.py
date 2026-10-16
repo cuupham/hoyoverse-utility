@@ -143,6 +143,31 @@ class TestDoCheckin:
             assert "character" in result["message"]
 
 
+class TestCheckinSignNoCharacter:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("game", [Game.STAR_RAIL, Game.ZZZ])
+    async def test_sign_without_character_is_no_character(
+        self, mock_session, mock_account, game
+    ):
+        not_signed = {"is_sign": False, "total_sign_day": 0, "error": None}
+        sign_no_character = {
+            "success": True,
+            "data": {
+                "retcode": -10002,
+                "message": "No in-game character detected, create one first",
+            },
+        }
+        with (
+            patch("src.api.checkin.get_checkin_info", return_value=not_signed),
+            patch("src.api.checkin.request_json", return_value=sign_no_character),
+        ):
+            result = await do_checkin(mock_session, mock_account, game)
+
+        assert result["success"] is False
+        assert result["status"] == "no_character"
+        assert result["retcode"] == -10002
+
+
 class TestCheckinFailPaths:
     @pytest.mark.asyncio
     async def test_check_cookie_api_failure(self, mock_session, mock_account):

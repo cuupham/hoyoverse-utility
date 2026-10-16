@@ -29,7 +29,12 @@ from src.config import (
 )
 from src.models.account import Account
 from src.models.game import Game
-from src.models.results import CheckinInfoResult, CheckinResult, CookieValidationResult
+from src.models.results import (
+    CheckinInfoResult,
+    CheckinResult,
+    CookieValidationResult,
+    ErrorKind,
+)
 
 
 def _already_claimed_result(info: CheckinInfoResult) -> CheckinResult:
@@ -39,6 +44,22 @@ def _already_claimed_result(info: CheckinInfoResult) -> CheckinResult:
         day=info["total_sign_day"],
         message=SYSTEM_MESSAGES["CHECKIN_ALREADY"],
     )
+
+
+def _failed_result(
+    message: str, retcode: int | None, error_kind: ErrorKind | None
+) -> CheckinResult:
+    """HoYoLAB reports a missing character on info or sign depending on the game."""
+    result = CheckinResult(
+        success=False,
+        status="no_character" if retcode == RETCODE_NO_CHARACTER else "failed",
+        day=None,
+        message=message,
+        error_kind=error_kind,
+    )
+    if retcode is not None:
+        result["retcode"] = retcode
+    return result
 
 
 async def _reconcile_sign(
@@ -144,21 +165,9 @@ async def do_checkin(
     info = await get_checkin_info(session, account, game)
 
     if info["error"]:
-        result = CheckinResult(
-            success=False,
-            status=(
-                "no_character"
-                if info.get("retcode") == RETCODE_NO_CHARACTER
-                else "failed"
-            ),
-            day=None,
-            message=info["error"],
-            error_kind=info.get("error_kind"),
+        return _failed_result(
+            info["error"], info.get("retcode"), info.get("error_kind")
         )
-        retcode = info.get("retcode")
-        if retcode is not None:
-            result["retcode"] = retcode
-        return result
 
     if info["is_sign"]:
         return _already_claimed_result(info)
@@ -186,16 +195,11 @@ async def do_checkin(
             reconciled = await _reconcile_sign(session, account, game)
             if reconciled is not None:
                 return reconciled
-        failed = CheckinResult(
-            success=False,
-            status="failed",
-            day=None,
-            message=parsed.error or SYSTEM_MESSAGES["REQUEST_FAILED"],
-            error_kind=parsed.error_kind,
+        return _failed_result(
+            parsed.error or SYSTEM_MESSAGES["REQUEST_FAILED"],
+            parsed.retcode,
+            parsed.error_kind,
         )
-        if parsed.retcode is not None:
-            failed["retcode"] = parsed.retcode
-        return failed
 
     risk = parsed.data.get("gt_result", parsed.data)
     invalid_risk = not isinstance(risk, dict) or (
