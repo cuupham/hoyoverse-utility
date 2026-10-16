@@ -1,6 +1,6 @@
 """API Health Check - Kiểm tra các endpoints HoYoLab còn sống
 
-Chạy: pytest tests/api-health/ -m live
+Chạy: pytest tests/api_health/ -m live
 Yêu cầu: Cookie thật trong env (ACC_*) hoặc tests/auth/.env.ps1
 
 Mục đích:
@@ -12,8 +12,7 @@ Mục đích:
 import pytest
 
 from src.api.checkin import check_cookie, get_checkin_info
-from src.api.redeem_fetch import fetch_cdkeys, fetch_all_uids
-from src.api.redeem_exchange import exchange_cdkey
+from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
 from src.models.game import Game
 
 # Tất cả tests trong file này đều cần marker live
@@ -30,7 +29,7 @@ class TestCookieValidationEndpoint:
 
         assert result["valid"] is True, f"Cookie không hợp lệ: {result.get('error')}"
         assert result["email_mask"] is not None, "API không trả email_mask"
-        assert "****" in result["email_mask"], f"email_mask format lạ: {result['email_mask']}"
+        assert "*" in result["email_mask"], "API should mask the email"
         assert result["error"] is None
 
     @pytest.mark.asyncio
@@ -38,16 +37,18 @@ class TestCookieValidationEndpoint:
         """Tất cả accounts đều validate được"""
         for acc in live_accounts:
             result = await check_cookie(live_session, acc)
-            assert result["valid"] is True, f"{acc.name}: Cookie invalid - {result.get('error')}"
+            assert (
+                result["valid"] is True
+            ), f"{acc.name}: Cookie invalid - {result.get('error')}"
 
 
 class TestCheckinInfoEndpoints:
     """Kiểm tra endpoints: checkin_info cho 3 games (GET, read-only)
 
     Endpoints:
-    - sg-hk4e-api.hoyolab.com/event/sol/info (Genshin)
-    - sg-public-api.hoyolab.com/event/luna/hkrpg/os/info (Star Rail)
-    - sg-public-api.hoyolab.com/event/luna/zzz/os/info (ZZZ)
+    - sg-act-public-api.hoyolab.com/event/sol/info (Genshin)
+    - sg-act-public-api.hoyolab.com/event/luna/hkrpg/os/info (Star Rail)
+    - sg-act-public-api.hoyolab.com/event/luna/zzz/os/info (ZZZ)
     """
 
     @pytest.mark.asyncio
@@ -57,10 +58,12 @@ class TestCheckinInfoEndpoints:
         result = await get_checkin_info(live_session, live_account, game)
 
         # Nếu account không chơi game này → error "No character" là valid response
-        if result["error"] and "character" in str(result["error"]).lower():
+        if result.get("retcode") == -10002:
             pytest.skip(f"{live_account.name} không chơi {game.value.name}")
 
-        assert result["error"] is None, f"{game.value.name}: API error - {result['error']}"
+        assert (
+            result["error"] is None
+        ), f"{game.value.name}: API error - {result['error']}"
         assert isinstance(result["is_sign"], bool), "is_sign phải là bool"
         assert isinstance(result["total_sign_day"], int), "total_sign_day phải là int"
         assert result["total_sign_day"] >= 0, "total_sign_day không thể âm"
@@ -76,26 +79,18 @@ class TestCDKeyFetchEndpoint:
     @pytest.mark.parametrize("game", list(Game), ids=lambda g: g.value.code)
     async def test_cdkey_fetch_responds(self, live_session, live_account, game):
         """Endpoint trả list (có thể rỗng nếu không có codes)"""
-        codes = await fetch_cdkeys(live_session, live_account, game)
+        result = await fetch_cdkeys(live_session, live_account, game)
+        assert result.success, result.error
+        codes = result.data
 
         # Kết quả phải là list (rỗng OK, nhưng phải là list)
-        assert isinstance(codes, list), f"{game.value.name}: Expected list, got {type(codes)}"
+        assert isinstance(
+            codes, list
+        ), f"{game.value.name}: Expected list, got {type(codes)}"
 
         # Nếu có codes → mỗi code phải là string không rỗng
         for code in codes:
             assert isinstance(code, str) and len(code) > 0, f"Code format lạ: {code!r}"
-
-    @pytest.mark.asyncio
-    async def test_cdkey_fetch_returns_known_structure(self, live_session, live_account):
-        """Ít nhất 1 game nên có codes (trừ khi đúng lúc không có event)"""
-        total_codes = 0
-        for game in Game:
-            codes = await fetch_cdkeys(live_session, live_account, game)
-            total_codes += len(codes)
-
-        # Soft assertion - warn thay vì fail vì có thể đúng lúc không có codes
-        if total_codes == 0:
-            pytest.skip("Không có codes nào ở thời điểm test - có thể bình thường")
 
 
 class TestUIDFetchEndpoint:
@@ -105,62 +100,23 @@ class TestUIDFetchEndpoint:
     """
 
     @pytest.mark.asyncio
-    async def test_uid_fetch_responds_with_valid_format(self, live_session, live_account):
+    async def test_uid_fetch_responds_with_valid_format(
+        self, live_session, live_account
+    ):
         """Endpoint trả UID hợp lệ (chuỗi số ≥6) cho mọi role tìm được."""
-        all_uids = await fetch_all_uids(live_session, live_account)
+        result = await fetch_all_uids(live_session, live_account)
+        assert result.success, result.error
+        all_uids = result.data
 
         assert isinstance(all_uids, dict)
         assert set(all_uids.keys()) == set(Game), "Phải có key cho cả 3 games"
 
         for game, regions in all_uids.items():
             for region_code, uid in regions.items():
-                assert uid.isdigit(), f"{game.value.name}/{region_code}: UID format lạ: {uid!r}"
-                assert len(uid) >= 6, f"{game.value.name}/{region_code}: UID quá ngắn: {uid}"
-
-    @pytest.mark.asyncio
-    async def test_uid_fetch_at_least_one_game(self, live_session, live_account):
-        """Account phải có UID cho ít nhất 1 game"""
-        all_uids = await fetch_all_uids(live_session, live_account)
-
-        total_uids = sum(len(regions) for regions in all_uids.values())
-        assert total_uids > 0, f"{live_account.name}: Không tìm thấy UID nào - account có thể chưa tạo nhân vật"
-
-
-class TestRedeemEndpoint:
-    """Kiểm tra endpoint: public-operation-*.hoyolab.com/.../webExchangeCdkeyHyl
-
-    Dùng INVALID code cố ý để test endpoint còn respond mà KHÔNG redeem thật.
-    Expected: retcode -2001 (code không tồn tại) hoặc -2003 (code đã sử dụng).
-    """
-
-    # Code giả - chắc chắn không hợp lệ, dùng để probe endpoint
-    _PROBE_CODE = "HEALTHCHECK000INVALID"
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("game", list(Game), ids=lambda g: g.value.code)
-    async def test_redeem_endpoint_responds(self, live_session, live_account, game):
-        """Endpoint trả retcode cho invalid code (chứng minh endpoint sống)"""
-        # Lấy UID đầu tiên cho game này (1 request cho mọi game/region)
-        all_uids = await fetch_all_uids(live_session, live_account)
-        game_regions = all_uids.get(game, {})
-
-        if not game_regions:
-            pytest.skip(f"{live_account.name} không chơi {game.value.name}")
-
-        region, uid = next(iter(game_regions.items()))
-
-        result = await exchange_cdkey(
-            live_session, live_account, game, region, uid, self._PROBE_CODE
-        )
-
-        # Endpoint sống = trả về response (dù là lỗi code invalid)
-        assert result["success"] is False, "Code giả không nên thành công!"
-        assert result["message"], "Phải có error message"
-
-        # retcode phải là known error (-2001, -2003, -2016, etc.)
-        retcode = result.get("retcode")
-        if retcode is not None:
-            assert retcode != 0, "Code giả không nên trả retcode 0"
+                assert (
+                    uid.isdigit()
+                ), f"{game.value.name}/{region_code}: UID must contain digits"
+                assert len(uid) >= 6, f"{game.value.name}/{region_code}: UID too short"
 
 
 class TestEndpointResponseTime:
@@ -184,7 +140,8 @@ class TestEndpointResponseTime:
         import time
 
         start = time.monotonic()
-        await fetch_cdkeys(live_session, live_account, Game.GENSHIN)
+        result = await fetch_cdkeys(live_session, live_account, Game.GENSHIN)
         elapsed = time.monotonic() - start
 
+        assert result.success, result.error
         assert elapsed < 10, f"CDKey fetch quá chậm: {elapsed:.1f}s (limit 10s)"

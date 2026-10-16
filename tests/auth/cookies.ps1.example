@@ -4,10 +4,11 @@
 # File này hướng dẫn cách tạo môi trường test local.
 #
 # CÁCH SỬ DỤNG:
-# 1. Copy file này ra thư mục gốc và đổi tên thành .env.ps1
+# 1. Copy file này thành tests/auth/.env.ps1
 # 2. Thay thế các giá trị placeholder bằng cookie thực của bạn
-# 3. Chạy file: .\.env.ps1
-# 4. Sau đó chạy test: pytest tests
+# 3. Health tests tự đọc tests/auth/.env.ps1 nếu chưa có ACC_* trong environment
+# 4. Chạy: python -m pytest tests/api_health/ -m live -v
+#    Nếu cần nạp cho CLI, dot-source: . .\tests\auth\.env.ps1
 #
 # LƯU Ý:
 # - File .env.ps1 chứa cookie thật đã được chặn bởi .gitignore

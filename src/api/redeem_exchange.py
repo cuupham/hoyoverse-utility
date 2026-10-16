@@ -1,33 +1,28 @@
-"""Redeem Exchange API - Exchange CDKeys cho rewards
-
-NOTE: Regions trong 1 game chạy TUẦN TỰ để share globally_expired_codes.
-Nếu đổi sang parallel, PHẢI dùng asyncio.Lock để bảo vệ shared set.
-"""
+"""Redeem Exchange API - preserve provider errors without guessing global expiry."""
 
 from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING
 
+from src.api.request_builder import build_page_info
+
 if TYPE_CHECKING:
     import aiohttp
 
+from src.api.client import parse_provider_envelope, request_json
+from src.api.request_builder import build_rpc_headers
 from src.config import (
     PAGE_NAME_HOME_GAME,
-    REDEEM_DELAY,
+    REDEEM_DELAY_SECONDS,
     REDEEM_LANG,
-    REDEEM_MESSAGES,
-    REDEEM_SKIP_MESSAGE_EXPIRED,
-    SKIP_GLOBALLY_RETCODES,
-    SKIP_REMAINING_RETCODES,
+    SYSTEM_MESSAGES,
     URLS,
 )
-from src.utils.logger import log_info
 from src.models.account import Account
-from src.models.game import Game, REGIONS
-from src.models.types import RedeemResult
-from src.api.client import safe_api_call
-from src.utils.helpers import build_rpc_headers, unix_ms
+from src.models.game import REGIONS, Game
+from src.models.results import RedeemResult
+from src.utils.timekeeping import unix_ms
 
 
 async def exchange_cdkey(
@@ -43,15 +38,21 @@ async def exchange_cdkey(
     region_value = REGIONS[game].get(region_code)
 
     if not region_value:
-        return RedeemResult(success=False, message=f"Unknown region: {region_code}")
+        return RedeemResult(
+            success=False,
+            message=SYSTEM_MESSAGES["REDEEM_UNKNOWN_REGION"].format(
+                region_code=region_code
+            ),
+            error_kind="invalid_response",
+        )
 
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        game_info.get_page_info(PAGE_NAME_HOME_GAME),
+        build_page_info(game_info, PAGE_NAME_HOME_GAME),
         page_name=PAGE_NAME_HOME_GAME,
     )
-    params = {
+    params: dict[str, str | int] = {
         "cdkey": cdkey,
         "game_biz": game_info.game_biz,
         "lang": REDEEM_LANG,
@@ -59,28 +60,25 @@ async def exchange_cdkey(
         "t": unix_ms(),
         "uid": uid,
     }
-    result = await safe_api_call(
+    result = await request_json(
         session,
         URLS["redeem"][game_info.code],
         headers,
         params=params,
+        retry=False,
     )
 
-    if not result["success"]:
-        return RedeemResult(success=False, message=result["message"])
-
-    data = result["data"]
-    retcode = data.get("retcode", -1)
-
-    if retcode == 0:
-        return RedeemResult(success=True, message=REDEEM_MESSAGES[0])
-
-    return RedeemResult(
+    parsed = parse_provider_envelope(result, allow_null_data=True)
+    if parsed.success:
+        return RedeemResult(success=True, message=SYSTEM_MESSAGES["REDEEM_SUCCESS"])
+    failed = RedeemResult(
         success=False,
-        message=REDEEM_MESSAGES.get(retcode) or data.get("message") or f"Error {retcode}",
-        skip_remaining=retcode in SKIP_REMAINING_RETCODES,
-        retcode=retcode,
+        message=parsed.error or SYSTEM_MESSAGES["REQUEST_FAILED"],
+        error_kind=parsed.error_kind,
     )
+    if parsed.retcode is not None:
+        failed["retcode"] = parsed.retcode
+    return failed
 
 
 async def redeem_codes_for_region(
@@ -90,44 +88,17 @@ async def redeem_codes_for_region(
     region_code: str,
     uid: str,
     codes: list[str],
-    globally_expired_codes: set[str] | None = None,
 ) -> dict[str, RedeemResult]:
-    """Redeem tất cả codes cho 1 game+region (tuần tự với delay).
-
-    Args:
-        globally_expired_codes: Shared set tracking codes expired/invalid globally.
-            Nếu code nằm trong set -> skip. Nếu trả về -2016/-2001 -> thêm vào set.
-    """
+    """Attempt every code in a region, sequentially and with the configured delay."""
     results: dict[str, RedeemResult] = {}
 
-    if globally_expired_codes is None:
-        globally_expired_codes = set()
-
     for i, code in enumerate(codes):
-        # Skip code đã biết expired/invalid từ region trước
-        if code in globally_expired_codes:
-            results[code] = RedeemResult(
-                success=False,
-                message=REDEEM_SKIP_MESSAGE_EXPIRED,
-                skipped=True,
-            )
-            continue
-
         result = await exchange_cdkey(session, account, game, region_code, uid, code)
         results[code] = result
 
-        # Mark globally expired nếu cần
-        retcode = result.get("retcode")
-        if retcode in SKIP_GLOBALLY_RETCODES:
-            globally_expired_codes.add(code)
-
-        # Skip remaining codes trong region (vd: -2011 chưa đủ rank)
-        if result.get("skip_remaining"):
-            break
-
         # Delay giữa mỗi code (trừ code cuối)
         if i < len(codes) - 1:
-            await asyncio.sleep(REDEEM_DELAY)
+            await asyncio.sleep(REDEEM_DELAY_SECONDS)
 
     return results
 
@@ -141,20 +112,13 @@ async def _redeem_game_for_account(
 ) -> dict[str, dict[str, RedeemResult]]:
     """Redeem codes cho 1 game với tất cả regions.
 
-    Regions chạy TUẦN TỰ để share expired_codes giữa các regions.
+    Regions run sequentially; a rejection in one region does not suppress another.
     """
-    regions = list(game_uids.keys())
-    log_info(
-        account.name,
-        f"Redeeming {game.value.name}: {len(codes)} code(s) × {len(regions)} region(s) ({', '.join(regions)})",
-    )
-
-    globally_expired_codes: set[str] = set()
     game_results: dict[str, dict[str, RedeemResult]] = {}
 
     for region, uid in game_uids.items():
         region_result = await redeem_codes_for_region(
-            session, account, game, region, uid, codes, globally_expired_codes=globally_expired_codes
+            session, account, game, region, uid, codes
         )
         game_results[region] = region_result
 
@@ -169,7 +133,7 @@ async def run_redeem_for_account(
 ) -> dict[Game, dict[str, dict[str, RedeemResult]]]:
     """Chạy redeem cho 1 account với tất cả games/regions.
 
-    Strategy: Games PARALLEL (codes riêng), Regions SEQUENTIAL (share expired codes).
+    Strategy: Games PARALLEL, Regions SEQUENTIAL.
     """
     games_to_redeem = []
 

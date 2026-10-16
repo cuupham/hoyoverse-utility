@@ -1,16 +1,14 @@
 """Centralized configuration - Tất cả constants và settings"""
 
 import json
-from typing import Any
+from typing import TypedDict
 
 from src.constants import JSON_SEPARATORS
-from src.utils.headers import DYNAMIC_HEADERS
 
 # ==================== COMMON HEADERS ====================
 COMMON_HEADERS = {
     "accept": "application/json, text/plain, */*",
     "accept-language": "en-US,en;q=0.9,vi-VN;q=0.8,vi;q=0.7",
-    **DYNAMIC_HEADERS,
     "dnt": "1",
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
@@ -30,21 +28,37 @@ ORIGINS = {
     },
 }
 
+
 # ==================== API URLs ====================
-# Heterogeneous: vài key là str (endpoint đơn), vài key là dict[code, str] (per-game).
-URLS: dict[str, Any] = {
+# Typed endpoint groups keep shared and per-game routes distinct.
+class GameEndpoints(TypedDict):
+    gs: str
+    sr: str
+    zzz: str
+
+
+class ApiUrls(TypedDict):
+    check_cookie: str
+    checkin_info: GameEndpoints
+    checkin_sign: GameEndpoints
+    fetch_cdkeys: str
+    fetch_uid: str
+    redeem: GameEndpoints
+
+
+URLS: ApiUrls = {
     # Cookie validation
     "check_cookie": "https://bbs-api-os.hoyolab.com/community/misc/wapi/account/user_brief_info",
     # Check-in
     "checkin_info": {
-        "gs": "https://sg-hk4e-api.hoyolab.com/event/sol/info",
-        "sr": "https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/info",
-        "zzz": "https://sg-public-api.hoyolab.com/event/luna/zzz/os/info",
+        "gs": "https://sg-act-public-api.hoyolab.com/event/sol/info",
+        "sr": "https://sg-act-public-api.hoyolab.com/event/luna/hkrpg/os/info",
+        "zzz": "https://sg-act-public-api.hoyolab.com/event/luna/zzz/os/info",
     },
     "checkin_sign": {
-        "gs": "https://sg-hk4e-api.hoyolab.com/event/sol/sign?lang=en-us",
-        "sr": "https://sg-public-api.hoyolab.com/event/luna/hkrpg/os/sign",
-        "zzz": "https://sg-public-api.hoyolab.com/event/luna/zzz/os/sign",
+        "gs": "https://sg-act-public-api.hoyolab.com/event/sol/sign",
+        "sr": "https://sg-act-public-api.hoyolab.com/event/luna/hkrpg/os/sign",
+        "zzz": "https://sg-act-public-api.hoyolab.com/event/luna/zzz/os/sign",
     },
     # CDKeys
     "fetch_cdkeys": "https://bbs-api-os.hoyolab.com/community/painter/wapi/circle/channel/guide/material",
@@ -60,12 +74,14 @@ URLS: dict[str, Any] = {
 
 # ==================== SETTINGS ====================
 SEMAPHORE_LIMIT = 20  # Max concurrent requests
-REDEEM_DELAY = 5  # Seconds between redeem codes
-REQUEST_TIMEOUT = 30  # Total request timeout
-MIN_REQUEST_TIMEOUT = 15  # Floor timeout per attempt (prevent premature timeouts)
-CONNECT_TIMEOUT = 10  # Connection timeout
-MAX_RETRIES = 3  # Retry attempts
-RATE_LIMIT_DELAY = 5  # Seconds to wait when rate limited (429)
+REDEEM_DELAY_SECONDS = 5  # Seconds between redeem codes
+REQUEST_TIMEOUT_SECONDS = 30  # Maximum timeout for an individual attempt
+MIN_ATTEMPT_TIMEOUT_SECONDS = (
+    15  # Floor timeout per attempt (prevent premature timeouts)
+)
+CONNECT_TIMEOUT_SECONDS = 10  # Connection timeout
+MAX_ATTEMPTS = 3  # Total attempts, including the initial request
+RATE_LIMIT_DELAY_SECONDS = 5  # Seconds to wait when rate limited (429)
 DEFAULT_TIMEZONE = "Asia/Ho_Chi_Minh"  # IANA standard (Asia/Saigon is deprecated)
 
 # Connection pool (client session)
@@ -80,63 +96,48 @@ RPC_LANGUAGE = "en-us"
 RPC_CLIENT_TYPE = "4"
 RPC_SYS_VERSION = "Windows NT 10.0"
 RPC_SHOW_TRANSLATED = "false"
-# Page names cho x-rpc-page_name / get_page_info
+# Page names used by the request builder
 PAGE_NAME_HOME_GAME = "HomeGamePage"
 PAGE_NAME_HOME = "HomePage"
 # Lang param cho redeem API (khác RPC_LANGUAGE)
 REDEEM_LANG = "en"
 
 # Cookie check: page_info static (account-wide, không gắn game)
-COOKIE_CHECK_PAGE_INFO = json.dumps(
-    {"pageName": PAGE_NAME_HOME, "pageType": "", "pageId": "", "pageArrangement": "", "gameId": ""},
+ACCOUNT_PAGE_INFO = json.dumps(
+    {
+        "pageName": PAGE_NAME_HOME,
+        "pageType": "",
+        "pageId": "",
+        "pageArrangement": "",
+        "gameId": "",
+    },
     separators=JSON_SEPARATORS,
 )
 
-# Fetch all game roles: page_info account-wide (getUserGameRolesByLtoken trả mọi game,
-# không gắn game cụ thể nên gameId rỗng).
-ALL_ROLES_PAGE_INFO = COOKIE_CHECK_PAGE_INFO
+# Account-wide page metadata is shared by cookie validation and role discovery.
 
 # NOTE: x-rpc-app_version cố tình KHÔNG gửi cho cookie check (user_brief_info).
 # Đã verify (browser, account thật): header này không tham gia chữ ký DS và không
 # ảnh hưởng kết quả — có/không/cũ/mới đều trả về như nhau. Bỏ hẳn theo KISS/YAGNI.
 
-# ==================== REDEEM MESSAGES (i18n ready) ====================
-REDEEM_MESSAGES = {
-    0: "Thành công",
-    -2001: "Code không tồn tại",
-    -2003: "Code đã sử dụng",
-    -2011: "Chưa đủ rank",
-    -2016: "Code đã hết hạn",
-    -2017: "Đã sử dụng",
-}
-
-# Message hiển thị khi skip code đã biết expired/invalid từ region trước (single source cho redeem + display)
-REDEEM_SKIP_MESSAGE_EXPIRED = "⏭ Đã skip (expired/invalid từ region trước)"
-
-# Retcodes để skip trong 1 region (không thử các codes còn lại trong region này)
-# -2011: Chưa đủ rank - rank được tính per-account, không cần thử code khác
-SKIP_REMAINING_IN_REGION = {-2011}
-
-# Retcodes để skip toàn cục (không thử ở các regions khác nữa)
-# -2016: Code đã hết hạn - hết hạn ở mọi nơi
-# -2001: Code không tồn tại - không tồn tại ở đâu cả
-SKIP_GLOBALLY_RETCODES = {-2016, -2001}
-
-# Combined: cả 2 đều skip codes còn lại trong region hiện tại
-SKIP_REMAINING_RETCODES = SKIP_REMAINING_IN_REGION | SKIP_GLOBALLY_RETCODES
-
 # ==================== SYSTEM_MESSAGES ====================
 SYSTEM_MESSAGES = {
+    "REQUEST_FAILED": "Request failed",
+    "REDEEM_SUCCESS": "Thành công",
+    "REDEEM_UNKNOWN_REGION": "Unknown region: {region_code}",
+    "CHECKIN_DAY_SHORT": "✓ Ngày {day}",
+    "SECTION_ACCOUNTS": "--- KIỂM TRA ACCOUNTS ---",
+    "VALIDATION_SUMMARY": "Tổng: {valid}/{total} accounts hợp lệ",
     "CHECKIN_SUCCESS": "Điểm danh thành công",
     "CHECKIN_ALREADY": "Đã điểm danh trước đó",
+    "CHECKIN_CHALLENGE": "Cần xác minh trên trang điểm danh HoYoLAB",
     "VALIDATION_VALID": "Hợp lệ",
-    "VALIDATION_ALL_FAILED": "Tất cả cookies đều không hợp lệ!",
+    "VALIDATION_ALL_FAILED": "Không thể xác thực account nào; xem lỗi từng account.",
     "VALIDATION_NONE_FOUND": "Không tìm thấy account nào trong environment variables!",
     "VALIDATION_NONE_VALID": "Không có account nào hợp lệ để tiếp tục!",
     "REDEEM_NO_CODES": "Không có codes nào để redeem",
     "REDEEM_NO_UIDS": "Tất cả accounts đều không có UID - không thể redeem!",
     "SYSTEM_NO_CODES": "Không có codes",
-    "SYSTEM_CODES_FOUND": "codes",
     "SYSTEM_NO_UIDS": "Không có UID nào",
     # Display section headers
     "SECTION_CHECKIN": "--- CHECK-IN ---",
@@ -149,5 +150,6 @@ SYSTEM_MESSAGES = {
     "ERR_NETWORK": "Network connection failed",
     "ERR_TIMEOUT": "Request timed out",
     "ERR_INVALID_JSON": "Response not JSON",
+    "ERR_INVALID_RESPONSE": "Unexpected API response structure",
     "ERR_UNKNOWN_SECURE": "Request failed (details hidden for security)",
 }

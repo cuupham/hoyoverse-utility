@@ -7,14 +7,20 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'requirements.txt'
+      - 'requirements-dev.txt'
+      - 'pyproject.toml'
       - 'pytest.ini'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
       - 'requirements.txt'
+      - 'requirements-dev.txt'
+      - 'pyproject.toml'
       - 'pytest.ini'
+      - '.github/workflows/**'
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -24,6 +30,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.13']
 
     steps:
       - name: Checkout repository
@@ -32,14 +42,19 @@ jobs:
       - name: Set up Python with pip cache
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: '3.13'
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
+          pip install -r requirements-dev.txt
+
+      - name: Check formatting, lint and types
+        run: |
+          python -m black --check src tests
+          python -m ruff check src tests
+          python -m mypy src
 
       - name: Run tests with coverage
         run: |
-          python -m pytest --cov=src --cov-report=term-missing --cov-fail-under=95
+          python -m pytest tests/unit tests/integration --cov=src --cov-report=term-missing --cov-fail-under=95

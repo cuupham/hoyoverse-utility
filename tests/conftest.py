@@ -1,8 +1,9 @@
 """Pytest fixtures và mock data cho testing"""
 
-import pytest
-from unittest.mock import AsyncMock
 from typing import Any
+from unittest.mock import AsyncMock
+
+import pytest
 
 from src.models.account import Account
 from src.models.game import Game
@@ -17,7 +18,9 @@ EXCLUDED_MARKERS = ["live"]
 def pytest_configure(config):
     """Register custom markers"""
     for marker in EXCLUDED_MARKERS:
-        config.addinivalue_line("markers", f"{marker}: Excluded from default run. Chạy: pytest -m {marker}")
+        config.addinivalue_line(
+            "markers", f"{marker}: Excluded from default run. Chạy: pytest -m {marker}"
+        )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -28,7 +31,11 @@ def pytest_collection_modifyitems(config, items):
     skip_expr = " or ".join(EXCLUDED_MARKERS)
     for item in items:
         if any(item.get_closest_marker(m) for m in EXCLUDED_MARKERS):
-            item.add_marker(pytest.mark.skip(reason=f"Excluded by default (markers: {skip_expr}). Chạy: pytest -m <marker>"))
+            item.add_marker(
+                pytest.mark.skip(
+                    reason=f"Excluded by default (markers: {skip_expr}). Chạy: pytest -m <marker>"
+                )
+            )
 
 
 # ==================== MOCK HELPERS ====================
@@ -56,18 +63,18 @@ class MockAsyncCM:
 def mock_account() -> Account:
     """Tạo mock account cho testing"""
     cookie_str = "ltoken_v2=mock_ltoken_v2; ltuid_v2=123456789; cookie_token_v2=mock_cookie_token; account_id_v2=123456789; _MHYUUID=mock-mhyuuid-1234; _HYVUUID=mock-hyvuuid-5678"
-    return Account.from_env("TEST_ACC", cookie_str)
+    return Account.from_cookie_string("TEST_ACC", cookie_str)
 
 
 @pytest.fixture
 def mock_accounts() -> list[Account]:
     """Tạo list mock accounts"""
     return [
-        Account.from_env(
+        Account.from_cookie_string(
             "ACC_1",
             "ltoken_v2=mock_ltoken_1; ltuid_v2=111111111; cookie_token_v2=mock_cookie_1; account_id_v2=111111111; _MHYUUID=mock-mhyuuid-1111; _HYVUUID=mock-hyvuuid-1111",
         ),
-        Account.from_env(
+        Account.from_cookie_string(
             "ACC_2",
             "ltoken_v2=mock_ltoken_2; ltuid_v2=222222222; cookie_token_v2=mock_cookie_2; account_id_v2=222222222; _MHYUUID=mock-mhyuuid-2222; _HYVUUID=mock-hyvuuid-2222",
         ),
@@ -165,13 +172,23 @@ def mock_uids_empty() -> dict[Game, dict[str, str]]:
 @pytest.fixture
 def mock_check_cookie_success() -> dict[str, Any]:
     """Mock response - check cookie thành công"""
-    return {"success": True, "data": {"retcode": 0, "message": "OK", "data": {"email_mask": "a****x1234@example.com"}}}
+    return {
+        "success": True,
+        "data": {
+            "retcode": 0,
+            "message": "OK",
+            "data": {"email_mask": "a****x1234@example.com"},
+        },
+    }
 
 
 @pytest.fixture
 def mock_check_cookie_invalid() -> dict[str, Any]:
     """Mock response - cookie hết hạn"""
-    return {"success": True, "data": {"retcode": -100, "message": "Please login", "data": None}}
+    return {
+        "success": True,
+        "data": {"retcode": -100, "message": "Please login", "data": None},
+    }
 
 
 @pytest.fixture
@@ -192,23 +209,37 @@ def mock_checkin_info_signed() -> dict[str, Any]:
     """Mock response - đã điểm danh"""
     return {
         "success": True,
-        "data": {"retcode": 0, "message": "OK", "data": {"total_sign_day": 11, "is_sign": True, "today": "2026-01-18"}},
+        "data": {
+            "retcode": 0,
+            "message": "OK",
+            "data": {"total_sign_day": 11, "is_sign": True, "today": "2026-01-18"},
+        },
     }
 
 
 @pytest.fixture
 def mock_checkin_sign_success() -> dict[str, Any]:
     """Mock response - điểm danh POST thành công"""
-    return {"success": True, "data": {"retcode": 0, "message": "OK", "data": {"code": "", "risk_code": 0}}}
+    return {
+        "success": True,
+        "data": {"retcode": 0, "message": "OK", "data": {"code": "", "risk_code": 0}},
+    }
 
 
 @pytest.fixture
 def mock_checkin_no_character() -> dict[str, Any]:
     """Mock response - không có nhân vật"""
-    return {"success": True, "data": {"retcode": -10002, "message": "No in-game character detected", "data": None}}
+    return {
+        "success": True,
+        "data": {
+            "retcode": -10002,
+            "message": "No in-game character detected",
+            "data": None,
+        },
+    }
 
 
-# Format: safe_api_call returns {"success": True, "data": <api_response>}
+# Format: request_json returns {"success": True, "data": <api_response>}
 @pytest.fixture
 def mock_redeem_success() -> dict[str, Any]:
     """Mock response - redeem thành công"""
@@ -223,7 +254,7 @@ def mock_redeem_success() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_already_claimed() -> dict[str, Any]:
+def mock_redeem_rejection_2017() -> dict[str, Any]:
     """Mock response - đã nhận rồi"""
     return {
         "success": True,
@@ -236,8 +267,8 @@ def mock_redeem_already_claimed() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_expired() -> dict[str, Any]:
-    """Mock response - code không tồn tại (retcode -2001 = SKIP_GLOBALLY)"""
+def mock_redeem_rejection_2001() -> dict[str, Any]:
+    """Mock response - code không tồn tại (provider rejection -2001; no inferred global semantics)"""
     return {
         "success": True,
         "data": {
@@ -249,7 +280,7 @@ def mock_redeem_expired() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_invalid() -> dict[str, Any]:
+def mock_redeem_rejection_2003() -> dict[str, Any]:
     """Mock response - code đã sử dụng (retcode -2003)"""
     return {
         "success": True,
@@ -262,8 +293,8 @@ def mock_redeem_invalid() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_code_expired() -> dict[str, Any]:
-    """Mock response - code đã hết hạn (retcode -2016 = SKIP_GLOBALLY)"""
+def mock_redeem_rejection_2016() -> dict[str, Any]:
+    """Mock response - code đã hết hạn (provider rejection -2016; no inferred global semantics)"""
     return {
         "success": True,
         "data": {
@@ -275,7 +306,7 @@ def mock_redeem_code_expired() -> dict[str, Any]:
 
 
 @pytest.fixture
-def mock_redeem_low_rank() -> dict[str, Any]:
+def mock_redeem_rejection_2011() -> dict[str, Any]:
     """Mock response - chưa đủ rank (Adventure Rank < 10, etc.)"""
     return {
         "success": True,

@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING, TextIO
 
 # Named logger — không can thiệp root logger, tránh conflict với test/library
 _LOGGER_NAME = "hoyolab"
@@ -22,7 +23,14 @@ class TraceIdFilter(logging.Filter):
         return True
 
 
-class ForceFlushStreamHandler(logging.StreamHandler):
+if TYPE_CHECKING:
+    _StreamHandlerBase = logging.StreamHandler[TextIO]
+else:
+    # StreamHandler becomes subscriptable at runtime only on newer Python versions.
+    _StreamHandlerBase = logging.StreamHandler
+
+
+class ForceFlushStreamHandler(_StreamHandlerBase):
     """Handler tự động flush buffer sau mỗi dòng log (Tốt cho CI/CD)"""
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -38,7 +46,7 @@ class ExecutionContext:
     trace_id: str
     start_time: datetime
 
-    def __new__(cls):
+    def __new__(cls) -> "ExecutionContext":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.trace_id = uuid.uuid4().hex[:8]
@@ -59,7 +67,10 @@ class ExecutionContext:
         handler = ForceFlushStreamHandler()
         handler.setLevel(log_level)
         handler.setFormatter(
-            logging.Formatter(fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%d/%m/%Y %H:%M:%S")
+            logging.Formatter(
+                fmt="%(asctime)s [%(levelname)s] %(message)s",
+                datefmt="%d/%m/%Y %H:%M:%S",
+            )
         )
 
         named_logger = logging.getLogger(_LOGGER_NAME)

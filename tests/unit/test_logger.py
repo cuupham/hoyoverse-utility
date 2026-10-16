@@ -102,3 +102,14 @@ class TestLogFunctions:
             assert mock_logger.info.call_count == 3
             calls = [c[0][0] for c in mock_logger.info.call_args_list]
             assert calls == ["line1", "line2", "line3"]
+
+
+class TestLogger:
+    def test_log_error(self):
+        """log_error ghi level ERROR"""
+        from src.utils.logger import log_error
+
+        with patch("src.utils.logger.logger") as mock_logger:
+            log_error("ACC_1", "test error")
+            mock_logger.error.assert_called_once()
+            assert "ACC_1" in mock_logger.error.call_args[0][0]

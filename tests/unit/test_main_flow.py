@@ -1,11 +1,12 @@
 """Tests cho main.py - tất cả functions và exit paths"""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 
-from src.models.account import Account
-from src.models.game import Game
+import pytest
+
 import src.main as main_module
+from src.models.game import Game
+from src.models.results import AccountValidationResult, ProviderResult, RedemptionData
 
 
 @pytest.fixture
@@ -24,67 +25,111 @@ class TestRunCheckin:
     @pytest.mark.asyncio
     async def test_returns_dict_by_account_name(self, mock_session, mock_accounts):
         mock_result = {game: {"success": True, "message": "OK"} for game in Game}
-        with patch("src.main.run_checkin_for_account", new_callable=AsyncMock, return_value=mock_result):
+        with patch(
+            "src.main.run_checkin_for_account",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ):
             result = await main_module.run_checkin(mock_session, mock_accounts)
 
         assert "ACC_1" in result
         assert "ACC_2" in result
 
 
-class TestFetchAppData:
-    @pytest.mark.asyncio
+class TestFetchRedemptionData:
     async def test_returns_cdkeys_and_uids(self, mock_session, mock_accounts):
-        mock_cdkeys = {game: ["CODE1"] for game in Game}
-        mock_uids = {game: {"asia": "123"} for game in Game}
+        uids = {game: {"asia": "123"} for game in Game}
+        with (
+            patch(
+                "src.main.fetch_cdkeys",
+                new=AsyncMock(return_value=ProviderResult(["CODE1"])),
+            ) as fetch,
+            patch(
+                "src.main.fetch_all_uids",
+                new=AsyncMock(return_value=ProviderResult(uids)),
+            ),
+        ):
+            result = await main_module.fetch_redemption_data(
+                mock_session, mock_accounts
+            )
+        assert result.cdkeys == {game: ["CODE1"] for game in Game}
+        assert set(result.account_uids) == {"ACC_1", "ACC_2"}
+        assert result.errors == []
+        assert fetch.await_count == 3
+
+    async def test_fallback_is_per_game_and_preserves_partial_results(
+        self, mock_session, mock_accounts
+    ):
+        calls = []
+
+        async def fetch(session, account, game):
+            calls.append((account.name, game))
+            if account.name == "ACC_1" and game is not Game.GENSHIN:
+                return ProviderResult([], error="timeout")
+            return ProviderResult([game.value.code])
 
         with (
-            patch("src.main.fetch_all_cdkeys", new_callable=AsyncMock, return_value=mock_cdkeys),
-            patch("src.main.fetch_all_uids", new_callable=AsyncMock, return_value=mock_uids),
+            patch("src.main.fetch_cdkeys", side_effect=fetch),
+            patch(
+                "src.main.fetch_all_uids",
+                new=AsyncMock(return_value=ProviderResult({game: {} for game in Game})),
+            ),
         ):
-            cdkeys, account_uids = await main_module.fetch_app_data(mock_session, mock_accounts)
+            result = await main_module.fetch_redemption_data(
+                mock_session, mock_accounts
+            )
+        assert result.cdkeys == {game: [game.value.code] for game in Game}
+        assert result.errors == []
+        assert ("ACC_2", Game.GENSHIN) not in calls
+        assert len(calls) == 5
 
-        assert cdkeys == mock_cdkeys
-        assert "ACC_1" in account_uids
-        assert "ACC_2" in account_uids
-
-    @pytest.mark.asyncio
-    async def test_fallback_when_first_account_returns_empty(self, mock_session, mock_accounts):
-        """Khi account đầu trả empty CDKeys, chọn kết quả tốt nhất từ accounts khác"""
-        empty_cdkeys = {game: [] for game in Game}
-        good_cdkeys = {Game.GENSHIN: ["CODE1", "CODE2"], Game.STAR_RAIL: [], Game.ZZZ: []}
-        mock_uids = {game: {} for game in Game}
-
-        call_count = 0
-
-        async def mock_fetch_cdkeys(session, account):
-            nonlocal call_count
-            call_count += 1
-            # Account đầu trả empty, account sau trả codes
-            return empty_cdkeys if call_count == 1 else good_cdkeys
+    async def test_successful_empty_is_distinct_from_failed_fetch(
+        self, mock_session, mock_accounts
+    ):
+        async def fetch(session, account, game):
+            return (
+                ProviderResult([])
+                if game is Game.GENSHIN
+                else ProviderResult([], error="timeout")
+            )
 
         with (
-            patch("src.main.fetch_all_cdkeys", side_effect=mock_fetch_cdkeys),
-            patch("src.main.fetch_all_uids", new_callable=AsyncMock, return_value=mock_uids),
+            patch("src.main.fetch_cdkeys", side_effect=fetch),
+            patch(
+                "src.main.fetch_all_uids",
+                new=AsyncMock(return_value=ProviderResult({}, error="Please log in")),
+            ),
         ):
-            cdkeys, _ = await main_module.fetch_app_data(mock_session, mock_accounts)
+            result = await main_module.fetch_redemption_data(
+                mock_session, mock_accounts
+            )
+        assert result.cdkeys == {Game.GENSHIN: []}
+        assert result.account_uids == {}
+        assert len(result.errors) == 4
+        assert any("timeout" in error for error in result.errors)
+        assert any("Please log in" in error for error in result.errors)
 
-        # Phải chọn kết quả có nhiều codes hơn
-        assert cdkeys == good_cdkeys
-        assert call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_returns_empty_when_all_accounts_empty(self, mock_session, mock_accounts):
-        """Khi mọi account đều trả empty CDKeys → trả dict rỗng (không crash)"""
-        empty_cdkeys = {game: [] for game in Game}
-        mock_uids = {game: {} for game in Game}
-
+    async def test_returns_empty_when_all_accounts_empty(
+        self, mock_session, mock_accounts
+    ):
         with (
-            patch("src.main.fetch_all_cdkeys", new_callable=AsyncMock, return_value=empty_cdkeys),
-            patch("src.main.fetch_all_uids", new_callable=AsyncMock, return_value=mock_uids),
+            patch(
+                "src.main.fetch_cdkeys", new=AsyncMock(return_value=ProviderResult([]))
+            ),
+            patch(
+                "src.main.fetch_all_uids",
+                new=AsyncMock(return_value=ProviderResult({game: {} for game in Game})),
+            ),
         ):
-            cdkeys, _ = await main_module.fetch_app_data(mock_session, mock_accounts)
+            result = await main_module.fetch_redemption_data(
+                mock_session, mock_accounts
+            )
+        assert result.cdkeys == {game: [] for game in Game}
+        assert result.errors == []
 
-        assert cdkeys == {game: [] for game in Game}
+    async def test_empty_accounts(self, mock_session):
+        result = await main_module.fetch_redemption_data(mock_session, [])
+        assert result == RedemptionData({game: [] for game in Game}, {})
 
 
 class TestRunRedeemForAll:
@@ -97,8 +142,12 @@ class TestRunRedeemForAll:
             "ACC_2": {Game.GENSHIN: {}, Game.STAR_RAIL: {}, Game.ZZZ: {}},
         }
 
-        with patch("src.main.run_redeem_for_account", new_callable=AsyncMock, return_value={}) as mock_redeem:
-            result = await main_module.run_redeem_for_all(mock_session, mock_accounts, cdkeys, account_uids)
+        with patch(
+            "src.main.run_redeem_for_account", new_callable=AsyncMock, return_value={}
+        ) as mock_redeem:
+            result = await main_module.run_redeem_for_all(
+                mock_session, mock_accounts, cdkeys, account_uids
+            )
 
         assert mock_redeem.call_count == 1  # chỉ ACC_1
         assert "ACC_1" in result
@@ -111,11 +160,41 @@ class TestRunRedeemForAll:
             "ACC_2": {game: {} for game in Game},
         }
 
-        result = await main_module.run_redeem_for_all(mock_session, mock_accounts, cdkeys, account_uids)
+        result = await main_module.run_redeem_for_all(
+            mock_session, mock_accounts, cdkeys, account_uids
+        )
         assert result == {}
 
 
 class TestMainExitPaths:
+    async def test_fetch_error_fails_run_and_closes_session(
+        self, mock_account, valid_cookie
+    ):
+        session = AsyncMock()
+        session.__aenter__.return_value = session
+        data = RedemptionData({}, {}, ["CDKeys / Genshin Impact: timeout"])
+        with (
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
+            patch("src.main.print_header"),
+            patch("src.main.create_session", return_value=session),
+            patch(
+                "src.main.validate_accounts",
+                new=AsyncMock(return_value=AccountValidationResult([mock_account])),
+            ),
+            patch("src.main.run_checkin", new=AsyncMock(return_value={})),
+            patch("src.main.fetch_redemption_data", new=AsyncMock(return_value=data)),
+            patch("src.main.display_checkin"),
+            patch("src.main.display_redeem") as display,
+            patch("src.main.run_redeem_for_all", new=AsyncMock()) as redeem,
+            pytest.raises(SystemExit, match="1"),
+        ):
+            await main_module.main()
+        display.assert_called_once_with({}, {}, data.errors)
+        redeem.assert_not_awaited()
+        session.__aexit__.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_no_env_accounts_exits(self):
         with (
@@ -129,7 +208,9 @@ class TestMainExitPaths:
     @pytest.mark.asyncio
     async def test_all_cookies_invalid_exits(self, valid_cookie):
         with (
-            patch("src.main.get_accounts_from_env", return_value={"ACC_1": "bad_cookie"}),
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": "bad_cookie"}
+            ),
             patch("src.main.print_header"),
             patch("src.main.log_error"),
             pytest.raises(SystemExit, match="1"),
@@ -142,11 +223,17 @@ class TestMainExitPaths:
         mock_session.__aenter__.return_value = mock_session
 
         with (
-            patch("src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}),
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
             patch("src.main.print_header"),
             patch("src.main.log_error"),
             patch("src.main.create_session", return_value=mock_session),
-            patch("src.main.validate_accounts", new_callable=AsyncMock, return_value=[]),
+            patch(
+                "src.main.validate_accounts",
+                new_callable=AsyncMock,
+                return_value=AccountValidationResult([]),
+            ),
             pytest.raises(SystemExit, match="1"),
         ):
             await main_module.main()
@@ -159,12 +246,22 @@ class TestMainExitPaths:
         empty_cdkeys = {game: [] for game in Game}
 
         with (
-            patch("src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}),
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
             patch("src.main.print_header"),
             patch("src.main.create_session", return_value=mock_session),
-            patch("src.main.validate_accounts", new_callable=AsyncMock, return_value=[mock_account]),
+            patch(
+                "src.main.validate_accounts",
+                new_callable=AsyncMock,
+                return_value=AccountValidationResult([mock_account]),
+            ),
             patch("src.main.run_checkin", new_callable=AsyncMock, return_value={}),
-            patch("src.main.fetch_app_data", new_callable=AsyncMock, return_value=(empty_cdkeys, {})),
+            patch(
+                "src.main.fetch_redemption_data",
+                new_callable=AsyncMock,
+                return_value=RedemptionData(empty_cdkeys, {}),
+            ),
             patch("src.main.display_checkin"),
             patch("src.main.display_redeem"),
             patch("src.main.run_redeem_for_all", new_callable=AsyncMock) as mock_redeem,
@@ -174,25 +271,45 @@ class TestMainExitPaths:
             mock_redeem.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_full_flow_with_codes_and_redeem_results(self, mock_account, valid_cookie):
+    async def test_full_flow_with_codes_and_redeem_results(
+        self, mock_account, valid_cookie
+    ):
         """Full flow có codes + redeem kết quả → gọi display_redeem_results (cover main.py:148)"""
         mock_session = AsyncMock()
         mock_session.__aenter__.return_value = mock_session
         cdkeys = {Game.GENSHIN: ["CODE1"], Game.STAR_RAIL: [], Game.ZZZ: []}
-        uids = {"ACC_1": {Game.GENSHIN: {"asia": "800"}, Game.STAR_RAIL: {}, Game.ZZZ: {}}}
-        redeem_results = {"ACC_1": {Game.GENSHIN: {"asia": {"CODE1": {"success": True}}}}}
+        uids = {
+            "ACC_1": {Game.GENSHIN: {"asia": "800"}, Game.STAR_RAIL: {}, Game.ZZZ: {}}
+        }
+        redeem_results = {
+            "ACC_1": {Game.GENSHIN: {"asia": {"CODE1": {"success": True}}}}
+        }
 
         with (
-            patch("src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}),
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
             patch("src.main.print_header"),
             patch("src.main.create_session", return_value=mock_session),
-            patch("src.main.validate_accounts", new_callable=AsyncMock, return_value=[mock_account]),
+            patch(
+                "src.main.validate_accounts",
+                new_callable=AsyncMock,
+                return_value=AccountValidationResult([mock_account]),
+            ),
             patch("src.main.run_checkin", new_callable=AsyncMock, return_value={}),
-            patch("src.main.fetch_app_data", new_callable=AsyncMock, return_value=(cdkeys, uids)),
+            patch(
+                "src.main.fetch_redemption_data",
+                new_callable=AsyncMock,
+                return_value=RedemptionData(cdkeys, uids),
+            ),
             patch("src.main.display_checkin"),
             patch("src.main.display_redeem"),
             patch("src.main.display_redeem_results") as mock_display,
-            patch("src.main.run_redeem_for_all", new_callable=AsyncMock, return_value=redeem_results),
+            patch(
+                "src.main.run_redeem_for_all",
+                new_callable=AsyncMock,
+                return_value=redeem_results,
+            ),
             patch("src.main.log_print"),
         ):
             await main_module.main()
@@ -207,21 +324,42 @@ class TestMainExitPaths:
         uids = {"ACC_1": {game: {} for game in Game}}
 
         with (
-            patch("src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}),
+            patch(
+                "src.main.get_accounts_from_env", return_value={"ACC_1": valid_cookie}
+            ),
             patch("src.main.print_header"),
             patch("src.main.create_session", return_value=mock_session),
-            patch("src.main.validate_accounts", new_callable=AsyncMock, return_value=[mock_account]),
+            patch(
+                "src.main.validate_accounts",
+                new_callable=AsyncMock,
+                return_value=AccountValidationResult([mock_account]),
+            ),
             patch("src.main.run_checkin", new_callable=AsyncMock, return_value={}),
-            patch("src.main.fetch_app_data", new_callable=AsyncMock, return_value=(cdkeys, uids)),
+            patch(
+                "src.main.fetch_redemption_data",
+                new_callable=AsyncMock,
+                return_value=RedemptionData(cdkeys, uids),
+            ),
             patch("src.main.display_checkin"),
             patch("src.main.display_redeem"),
             patch("src.main.display_redeem_results"),
-            patch("src.main.run_redeem_for_all", new_callable=AsyncMock, return_value={}),
-            patch("src.main.log_print") as mock_log,
+            patch(
+                "src.main.run_redeem_for_all", new_callable=AsyncMock, return_value={}
+            ),
+            patch("src.main.log_error") as mock_error,
+            pytest.raises(SystemExit, match="1"),
         ):
             await main_module.main()
-            # Phải log "no UIDs" message
-            log_calls = [str(c) for c in mock_log.call_args_list]
-            assert any("UID" in c for c in log_calls)
+        assert any("UID" in str(c) for c in mock_error.call_args_list)
 
 
+class TestFetchRedemptionDataEmpty:
+    @pytest.mark.asyncio
+    async def test_empty_accounts_returns_empty(self, mock_session):
+        """Empty accounts produce empty redemption data without fetch errors."""
+        from src.main import fetch_redemption_data
+
+        result = await fetch_redemption_data(mock_session, [])
+        assert all(codes == [] for codes in result.cdkeys.values())
+        assert result.account_uids == {}
+        assert result.errors == []

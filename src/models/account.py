@@ -17,11 +17,13 @@ class Account:
     """
 
     name: str
-    cookie_str: str
-    cookies: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    cookie_str: str = field(repr=False)
+    cookies: Mapping[str, str] = field(
+        default_factory=lambda: MappingProxyType({}), repr=False
+    )
 
     @classmethod
-    def from_env(cls, name: str, cookie_str: str) -> "Account":
+    def from_cookie_string(cls, name: str, cookie_str: str) -> "Account":
         """Parse cookie string thành Account object.
 
         Raises:
@@ -36,10 +38,12 @@ class Account:
             pair = pair.strip()
             if "=" in pair:
                 key, value = pair.split("=", 1)
+                if key.strip() in cookies:
+                    raise ValueError(f"{name}: Duplicate cookie key: {key.strip()}")
                 cookies[key.strip()] = value.strip()
 
         # Kiểm tra required keys
-        missing = [k for k in REQUIRED_COOKIE_KEYS if k not in cookies]
+        missing = [k for k in REQUIRED_COOKIE_KEYS if not cookies.get(k)]
         if missing:
             raise ValueError(f"{name}: Missing required cookies: {missing}")
 

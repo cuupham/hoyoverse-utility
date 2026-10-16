@@ -1,10 +1,12 @@
 """Integration tests - Verifying the full flow of main.py with mocked network"""
 
-import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 import src.main as main_module
+from src.models.results import AccountValidationResult, RedemptionData
 
 
 class TestIntegrationFlow:
@@ -20,40 +22,57 @@ class TestIntegrationFlow:
         with patch("src.main.check_cookie") as mock_check:
             mock_check.side_effect = [mock_res1, mock_res2]
 
-            valid_accs = await main_module.validate_accounts(mock_session, mock_accounts)
+            valid_accs = await main_module.validate_accounts(
+                mock_session, mock_accounts
+            )
 
-            assert len(valid_accs) == 1
-            assert valid_accs[0].name == "ACC_1"
+            assert len(valid_accs.valid_accounts) == 1
+            assert valid_accs.errors == ["ACC_2: Invalid cookie"]
+            assert valid_accs.valid_accounts[0].name == "ACC_1"
 
     @pytest.mark.asyncio
-    async def test_main_orchestration_parallel_execution(self, mock_session, mock_account):
-        """Verify that checkin and fetch_app_data (for redeem) run in parallel in the main flow"""
-        valid_accs = [mock_account]
+    async def test_main_orchestration_parallel_execution(self, mock_account):
+        """A sequential main flow cannot cross this two-task barrier."""
+        checkin_started, fetch_started = asyncio.Event(), asyncio.Event()
 
+        async def checkin(*args):
+            checkin_started.set()
+            await fetch_started.wait()
+            return {}
+
+        async def fetch(*args):
+            fetch_started.set()
+            await checkin_started.wait()
+            return RedemptionData({}, {})
+
+        session = AsyncMock()
+        session.__aenter__.return_value = session
         with (
-            patch("src.main.run_checkin", new_callable=AsyncMock) as mock_checkin,
-            patch("src.main.fetch_app_data", new_callable=AsyncMock) as mock_fetch,
+            patch(
+                "src.main.get_accounts_from_env",
+                return_value={mock_account.name: mock_account.cookie_str},
+            ),
+            patch("src.main.create_session", return_value=session),
+            patch(
+                "src.main.validate_accounts",
+                new=AsyncMock(return_value=AccountValidationResult([mock_account])),
+            ),
+            patch("src.main.run_checkin", side_effect=checkin),
+            patch("src.main.fetch_redemption_data", side_effect=fetch),
             patch("src.main.display_checkin"),
             patch("src.main.display_redeem"),
+            patch("src.main.log_print"),
         ):
-            mock_checkin.return_value = {"acc": "res"}
-            mock_fetch.return_value = ({}, {})
-
-            checkin_task = main_module.run_checkin(mock_session, valid_accs)
-            app_data_task = main_module.fetch_app_data(mock_session, valid_accs)
-
-            res = await asyncio.gather(checkin_task, app_data_task)
-
-            assert len(res) == 2
-            assert mock_checkin.called
-            assert mock_fetch.called
+            await asyncio.wait_for(main_module.main(), timeout=2)
+        assert checkin_started.is_set() and fetch_started.is_set()
+        session.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("src.main.create_session")
     @patch("src.main.get_accounts_from_env")
     @patch("src.main.validate_accounts")
     @patch("src.main.run_checkin")
-    @patch("src.main.fetch_app_data")
+    @patch("src.main.fetch_redemption_data")
     @patch("src.main.run_redeem_for_all")
     async def test_full_main_flow_success(
         self,
@@ -75,9 +94,9 @@ class TestIntegrationFlow:
         mock_session.__aenter__.return_value = mock_session
         mock_session_factory.return_value = mock_session
 
-        mock_validate.return_value = [mock_account]
+        mock_validate.return_value = AccountValidationResult([mock_account])
         mock_run_checkin.return_value = {}
-        mock_fetch_data.return_value = ({}, {})
+        mock_fetch_data.return_value = RedemptionData({}, {})
         mock_run_redeem.return_value = {}
 
         with (
@@ -85,10 +104,7 @@ class TestIntegrationFlow:
             patch("src.main.display_redeem"),
             patch("src.main.display_redeem_results"),
         ):
-            try:
-                await main_module.main()
-            except SystemExit:
-                pass
+            await main_module.main()
 
             mock_get_env.assert_called_once()
             mock_validate.assert_called_once()

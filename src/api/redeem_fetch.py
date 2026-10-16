@@ -5,62 +5,109 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+from src.api.request_builder import build_page_info
+
 if TYPE_CHECKING:
     import aiohttp
 
-from src.config import ALL_ROLES_PAGE_INFO, PAGE_NAME_HOME, URLS
+from src.api.client import parse_provider_envelope, request_json
+from src.api.request_builder import build_rpc_headers
+from src.config import ACCOUNT_PAGE_INFO, PAGE_NAME_HOME, SYSTEM_MESSAGES, URLS
 from src.models.account import Account
-from src.models.game import Game, GAME_BY_BIZ, REGION_CODE_BY_VALUE
-from src.api.client import safe_api_call
-from src.utils.helpers import build_rpc_headers
+from src.models.game import GAME_BY_BIZ, REGION_CODE_BY_VALUE, Game
+from src.models.results import ProviderResult
 
 
 async def fetch_cdkeys(
     session: aiohttp.ClientSession,
     account: Account,
     game: Game,
-) -> list[str]:
+) -> ProviderResult[list[str]]:
     """Fetch danh sách CDKeys cho 1 game.
 
-    Returns:
-        List các CDKey codes.
+    Returns a typed outcome; successful empty material is not an API failure.
     """
     game_info = game.value
     headers = build_rpc_headers(
         account,
-        "act_hoyolab",
-        game_info.get_page_info(""),
+        "hoyolab",
+        build_page_info(game_info, ""),
         page_name="",
     )
     params = {"game_id": game_info.game_id}
 
-    result = await safe_api_call(session, URLS["fetch_cdkeys"], headers, params=params)
+    result = await request_json(session, URLS["fetch_cdkeys"], headers, params=params)
 
-    if not result["success"]:
-        return []
+    parsed = parse_provider_envelope(result)
+    if not parsed.success:
+        return ProviderResult(
+            [], error=parsed.error, retcode=parsed.retcode, error_kind=parsed.error_kind
+        )
+    modules = parsed.data.get("modules")
+    if not isinstance(modules, list):
+        return ProviderResult(
+            [],
+            error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+            retcode=0,
+            error_kind="invalid_response",
+        )
+    codes: list[str] = []
+    for module in modules:
+        if not isinstance(module, dict):
+            return ProviderResult(
+                [],
+                error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                retcode=0,
+                error_kind="invalid_response",
+            )
+        group = module.get("exchange_group")
+        if group is None:
+            continue
+        if not isinstance(group, dict):
+            return ProviderResult(
+                [],
+                error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                retcode=0,
+                error_kind="invalid_response",
+            )
+        bonuses = group.get("bonuses")
+        if bonuses is None:
+            continue
+        if not isinstance(bonuses, list):
+            return ProviderResult(
+                [],
+                error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                retcode=0,
+                error_kind="invalid_response",
+            )
+        for bonus in bonuses:
+            if not isinstance(bonus, dict) or not isinstance(
+                bonus.get("exchange_code", ""), str
+            ):
+                return ProviderResult(
+                    [],
+                    error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                    retcode=0,
+                    error_kind="invalid_response",
+                )
+            code = bonus.get("exchange_code", "").strip()
+            if code and code not in codes:
+                codes.append(code)
+    return ProviderResult(codes, retcode=0)
 
-    data = result["data"]
-    if data.get("retcode") != 0:
-        return []
 
-    # Trích xuất codes từ response
-    return [
-        bonus["exchange_code"]
-        for module in data.get("data", {}).get("modules", [])
-        if (group := module.get("exchange_group"))
-        for bonus in group.get("bonuses", [])
-        if bonus.get("exchange_code")
-    ]
-
-
-async def fetch_all_cdkeys(session: aiohttp.ClientSession, account: Account) -> dict[Game, list[str]]:
+async def fetch_all_cdkeys(
+    session: aiohttp.ClientSession, account: Account
+) -> dict[Game, ProviderResult[list[str]]]:
     """Fetch tất cả CDKeys cho 3 games song song."""
     tasks = [fetch_cdkeys(session, account, game) for game in Game]
     results = await asyncio.gather(*tasks)
     return dict(zip(Game, results))
 
 
-async def fetch_all_uids(session: aiohttp.ClientSession, account: Account) -> dict[Game, dict[str, str]]:
+async def fetch_all_uids(
+    session: aiohttp.ClientSession, account: Account
+) -> ProviderResult[dict[Game, dict[str, str]]]:
     """Fetch tất cả UIDs cho account trong 1 request.
 
     getUserGameRolesByLtoken (không kèm region/game_biz) trả về MỌI game role
@@ -75,27 +122,51 @@ async def fetch_all_uids(session: aiohttp.ClientSession, account: Account) -> di
     headers = build_rpc_headers(
         account,
         "hoyolab",
-        ALL_ROLES_PAGE_INFO,
+        ACCOUNT_PAGE_INFO,
         page_name=PAGE_NAME_HOME,
     )
 
-    result = await safe_api_call(session, URLS["fetch_uid"], headers)
+    result = await request_json(session, URLS["fetch_uid"], headers)
 
-    if not result["success"]:
-        return uids
-
-    data = result["data"]
-    if data.get("retcode") != 0:
-        return uids
-
-    for role in data.get("data", {}).get("list", []):
-        game = GAME_BY_BIZ.get(role.get("game_biz"))
+    parsed = parse_provider_envelope(result)
+    if not parsed.success:
+        return ProviderResult(
+            uids,
+            error=parsed.error,
+            retcode=parsed.retcode,
+            error_kind=parsed.error_kind,
+        )
+    roles = parsed.data.get("list")
+    if not isinstance(roles, list):
+        return ProviderResult(
+            uids,
+            error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+            retcode=0,
+            error_kind="invalid_response",
+        )
+    for role in roles:
+        if not isinstance(role, dict) or not isinstance(role.get("game_biz"), str):
+            return ProviderResult(
+                {game: {} for game in Game},
+                error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                retcode=0,
+                error_kind="invalid_response",
+            )
+        game = GAME_BY_BIZ.get(role["game_biz"])
         if game is None:
             continue  # Game không được hỗ trợ (vd Honkai 3rd, Tears of Themis)
 
-        region_code = REGION_CODE_BY_VALUE.get((game, role.get("region")))
+        region = role.get("region")
         uid = role.get("game_uid")
+        if not isinstance(region, str) or not isinstance(uid, str) or not uid.isdigit():
+            return ProviderResult(
+                {game: {} for game in Game},
+                error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                retcode=0,
+                error_kind="invalid_response",
+            )
+        region_code = REGION_CODE_BY_VALUE.get((game, region))
         if region_code and uid:
             uids[game][region_code] = uid
 
-    return uids
+    return ProviderResult(uids, retcode=0)

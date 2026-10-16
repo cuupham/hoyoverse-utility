@@ -1,10 +1,12 @@
 """Tests cho fetch CDKeys functionality"""
 
-import pytest
 from unittest.mock import patch
 
+import pytest
+
+from src.api.redeem_fetch import fetch_all_cdkeys, fetch_cdkeys
 from src.models.game import Game
-from src.api.redeem_fetch import fetch_cdkeys, fetch_all_cdkeys
+from src.models.results import ProviderResult
 
 
 class TestFetchCdkeys:
@@ -32,46 +34,60 @@ class TestFetchCdkeys:
             },
         }
 
-        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.request_json") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.GENSHIN)
 
-            assert isinstance(result, list)
+            assert result.success
+            assert result.data == ["GENSHINGIFT2024", "PRIMOGEMS500"]
 
     @pytest.mark.asyncio
     async def test_fetch_cdkeys_empty_response(self, mock_session, mock_account):
         """Test fetch CDKeys khi API trả về rỗng"""
-        mock_api_response = {"success": True, "data": {"retcode": 0, "data": {"modules": []}}}
+        mock_api_response = {
+            "success": True,
+            "data": {"retcode": 0, "data": {"modules": []}},
+        }
 
-        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.request_json") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.STAR_RAIL)
 
-            assert result == []
+            assert result.data == []
+            assert result.success
 
     @pytest.mark.asyncio
     async def test_fetch_cdkeys_api_error(self, mock_session, mock_account):
         """Test fetch CDKeys khi API lỗi"""
-        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
-            mock_api.return_value = {"success": False, "error": "network", "message": "Connection failed"}
+        with patch("src.api.redeem_fetch.request_json") as mock_api:
+            mock_api.return_value = {
+                "success": False,
+                "error": "network",
+                "message": "Connection failed",
+            }
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.ZZZ)
 
-            assert result == []
+            assert result.data == []
+            assert result.error == "Connection failed"
 
     @pytest.mark.asyncio
     async def test_fetch_cdkeys_invalid_structure(self, mock_session, mock_account):
         """Test fetch CDKeys khi response structure không đúng"""
-        mock_api_response = {"success": True, "data": {"retcode": 0, "data": {"unexpected_field": "value"}}}
+        mock_api_response = {
+            "success": True,
+            "data": {"retcode": 0, "data": {"unexpected_field": "value"}},
+        }
 
-        with patch("src.api.redeem_fetch.safe_api_call") as mock_api:
+        with patch("src.api.redeem_fetch.request_json") as mock_api:
             mock_api.return_value = mock_api_response
 
             result = await fetch_cdkeys(mock_session, mock_account, Game.GENSHIN)
 
-            assert result == []
+            assert result.data == []
+            assert not result.success
 
 
 class TestFetchAllCdkeys:
@@ -83,11 +99,11 @@ class TestFetchAllCdkeys:
 
         async def mock_fetch_cdkeys(session, account, game):
             if game == Game.GENSHIN:
-                return ["GS1", "GS2"]
+                return ProviderResult(["GS1", "GS2"])
             elif game == Game.STAR_RAIL:
-                return ["HSR1"]
+                return ProviderResult(["HSR1"])
             else:
-                return []
+                return ProviderResult([])
 
         with patch("src.api.redeem_fetch.fetch_cdkeys", side_effect=mock_fetch_cdkeys):
             result = await fetch_all_cdkeys(mock_session, mock_account)
@@ -96,17 +112,19 @@ class TestFetchAllCdkeys:
             assert Game.STAR_RAIL in result
             assert Game.ZZZ in result
 
-            assert len(result[Game.GENSHIN]) == 2
-            assert len(result[Game.STAR_RAIL]) == 1
-            assert len(result[Game.ZZZ]) == 0
+            assert len(result[Game.GENSHIN].data) == 2
+            assert len(result[Game.STAR_RAIL].data) == 1
+            assert len(result[Game.ZZZ].data) == 0
 
     @pytest.mark.asyncio
     async def test_fetch_all_games_all_empty(self, mock_session, mock_account):
         """Test khi tất cả games đều không có codes"""
-        with patch("src.api.redeem_fetch.fetch_cdkeys", return_value=[]):
+        with patch(
+            "src.api.redeem_fetch.fetch_cdkeys", return_value=ProviderResult([])
+        ):
             result = await fetch_all_cdkeys(mock_session, mock_account)
 
-            assert all(len(codes) == 0 for codes in result.values())
+            assert all(len(codes.data) == 0 for codes in result.values())
 
     @pytest.mark.asyncio
     async def test_fetch_all_games_partial_failure(self, mock_session, mock_account):
@@ -117,11 +135,27 @@ class TestFetchAllCdkeys:
             nonlocal call_count
             call_count += 1
             if game == Game.STAR_RAIL:
-                return []
-            return ["CODE1"]
+                return ProviderResult([], error="network")
+            return ProviderResult(["CODE1"])
 
-        with patch("src.api.redeem_fetch.fetch_cdkeys", side_effect=mock_fetch_with_error):
+        with patch(
+            "src.api.redeem_fetch.fetch_cdkeys", side_effect=mock_fetch_with_error
+        ):
             result = await fetch_all_cdkeys(mock_session, mock_account)
 
             assert len(result) == 3
             assert call_count == 3
+            assert not result[Game.STAR_RAIL].success
+            assert result[Game.GENSHIN].data == ["CODE1"]
+
+
+class TestFetchCdkeysRetcode:
+    @pytest.mark.asyncio
+    async def test_retcode_not_zero(self, mock_session, mock_account):
+        """fetch_cdkeys khi retcode != 0 → return []"""
+        mock_resp = {"success": True, "data": {"retcode": -1, "message": "error"}}
+        with patch("src.api.redeem_fetch.request_json", return_value=mock_resp):
+            result = await fetch_cdkeys(mock_session, mock_account, Game.GENSHIN)
+        assert result.data == []
+        assert result.error == "error"
+        assert result.retcode == -1

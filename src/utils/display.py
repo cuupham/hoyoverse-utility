@@ -4,11 +4,8 @@ from __future__ import annotations
 
 from src.config import SYSTEM_MESSAGES
 from src.models.game import Game
-from src.models.types import CheckinResult, RedeemResult
-from src.utils.logger import log_info, log_print
-
-# Retcode cho "no in-game character detected" từ HoYoLab API
-_RETCODE_NO_CHARACTER = -10002
+from src.models.results import CheckinResult, RedeemResult
+from src.utils.logger import log_error, log_info, log_print
 
 
 def _plural(n: int, singular: str) -> str:
@@ -21,18 +18,13 @@ def _plural(n: int, singular: str) -> str:
 
 def _short_checkin_status(result: CheckinResult) -> str:
     """Rút gọn status check-in cho table display."""
+    if result.get("status") == "already_claimed":
+        return SYSTEM_MESSAGES["CHECKIN_ALREADY_SHORT"]
+    if result.get("status") == "no_character":
+        return SYSTEM_MESSAGES["CHECKIN_NO_CHARACTER"]
     if result["success"]:
-        if SYSTEM_MESSAGES["CHECKIN_ALREADY"] in result["message"]:
-            return SYSTEM_MESSAGES["CHECKIN_ALREADY_SHORT"]
-        return f"✓ Ngày {result['day']}"
-
-    # Ưu tiên retcode nếu có, fallback sang string matching
-    if result.get("retcode") == _RETCODE_NO_CHARACTER:
-        return SYSTEM_MESSAGES["CHECKIN_NO_CHARACTER"]
-    msg = result["message"]
-    if "character" in msg.lower():
-        return SYSTEM_MESSAGES["CHECKIN_NO_CHARACTER"]
-    return f"✗ {msg[:20]}"
+        return SYSTEM_MESSAGES["CHECKIN_DAY_SHORT"].format(day=result.get("day"))
+    return f"✗ {result['message'][:20]}"
 
 
 def display_checkin(all_results: dict[str, dict[Game, CheckinResult]]) -> None:
@@ -68,7 +60,9 @@ def display_cdkeys(cdkeys: dict[Game, list[str]]) -> None:
     for game, codes in cdkeys.items():
         if codes:
             codes_str = ", ".join(codes)
-            log_print(f"  {game.value.name}: {_plural(len(codes), 'code')} [{codes_str}]")
+            log_print(
+                f"  {game.value.name}: {_plural(len(codes), 'code')} [{codes_str}]"
+            )
         else:
             log_print(f"  {game.value.name}: {SYSTEM_MESSAGES['SYSTEM_NO_CODES']}")
 
@@ -91,14 +85,16 @@ def display_uids(account_uids: dict[str, dict[Game, dict[str, str]]]) -> None:
 
 def _short_redeem_status(res: RedeemResult) -> str:
     """Rút gọn status redeem cho table display."""
-    if res.get("skipped"):
-        return "⏭ Skip"
     if res.get("success"):
-        return "✓ Thành công"
-    return f"✗ {res.get('message', 'Error')}"
+        return f"✓ {SYSTEM_MESSAGES['REDEEM_SUCCESS']}"
+    retcode = res.get("retcode")
+    prefix = f"[{retcode}] " if retcode is not None else ""
+    return f"✗ {prefix}{res.get('message', 'Error')}"
 
 
-def display_redeem_results(results_map: dict[str, dict[Game, dict[str, dict[str, RedeemResult]]]]) -> None:
+def display_redeem_results(
+    results_map: dict[str, dict[Game, dict[str, dict[str, RedeemResult]]]],
+) -> None:
     """Hiển thị kết quả redeem dạng table, nhóm theo game."""
     # Tổ chức lại: game → [(acc, region, {code: result})]
     game_rows: dict[Game, list[tuple[str, str, dict[str, RedeemResult]]]] = {}
@@ -140,7 +136,9 @@ def display_redeem_results(results_map: dict[str, dict[Game, dict[str, dict[str,
             display_acc = acc_name if acc_name != prev_acc else ""
             row = f"{display_acc:<{acc_w}}{region:<{reg_w}}"
             for code in codes:
-                res: RedeemResult = codes_res.get(code) or RedeemResult(success=False, message="")
+                res: RedeemResult = codes_res.get(code) or RedeemResult(
+                    success=False, message=""
+                )
                 status = _short_redeem_status(res)
                 if len(status) > code_w - 2:
                     status = status[: code_w - 4] + ".."
@@ -150,16 +148,23 @@ def display_redeem_results(results_map: dict[str, dict[Game, dict[str, dict[str,
     log_print()
 
 
-def display_redeem(cdkeys: dict[Game, list[str]], account_uids: dict[str, dict[Game, dict[str, str]]]) -> None:
+def display_redeem(
+    cdkeys: dict[Game, list[str]],
+    account_uids: dict[str, dict[Game, dict[str, str]]],
+    errors: list[str] | None = None,
+) -> None:
     """Hiển thị header redeem: CDKeys + UIDs (trước khi redeem bắt đầu)."""
     log_print(SYSTEM_MESSAGES["SECTION_REDEEM"])
+    for error in errors or []:
+        log_error("SYSTEM", error)
 
     log_print(SYSTEM_MESSAGES["LABEL_CDKEYS"])
     display_cdkeys(cdkeys)
 
     total_codes = sum(len(codes) for codes in cdkeys.values())
     if total_codes == 0:
-        log_info("SYSTEM", SYSTEM_MESSAGES["REDEEM_NO_CODES"])
+        if not errors:
+            log_info("SYSTEM", SYSTEM_MESSAGES["REDEEM_NO_CODES"])
         return
 
     log_print(SYSTEM_MESSAGES["LABEL_UIDS"])
