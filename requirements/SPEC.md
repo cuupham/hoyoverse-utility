@@ -72,7 +72,7 @@ secrets:
 
 ### 2.2. Workflow environment variables
 
-The [daily workflow](../.github/workflows/hoyo-flow.yml) explicitly exposes ACC_1 through ACC_4 from repository/environment secrets. It does not export every secret through toJSON. Add a workflow mapping explicitly if more accounts are required in Actions; local runs discover all nonempty ACC_* values.
+The [daily workflow](../.github/workflows/daily-check-in.yml) explicitly exposes ACC_1 through ACC_4 from repository/environment secrets. It does not export every secret through toJSON. Add a workflow mapping explicitly if more accounts are required in Actions; local runs discover all nonempty ACC_* values.
 
 ### 2.3. Cookie Format
 
@@ -90,7 +90,7 @@ mi18nLang=en-us; _HYVUUID=xxx; _MHYUUID=xxx; cookie_token_v2=xxx; account_mid_v2
 
 ## 3. GitHub Actions
 
-[The workflow manifest](../.github/workflows/hoyo-flow.yml) owns schedule, pinned actions, secret allowlist, concurrency, Python version and execution command. Its cron runs at 04:45 UTC+7. [The test workflow](../.github/workflows/test.yml) owns the Python 3.10/3.13 verification matrix. No copied YAML implementation is maintained here.
+[The workflow manifest](../.github/workflows/daily-check-in.yml) owns schedule, pinned actions, secret allowlist, concurrency, Python version and execution command. Its cron runs at 04:45 UTC+7. [The CI workflow](../.github/workflows/ci.yml) owns the Python 3.10/3.13 verification matrix. No copied YAML implementation is maintained here.
 
 ## 4. Lưu ý quan trọng
 
@@ -139,7 +139,7 @@ discovery and markers.
 
 ### 5.3. Cách chạy Test
 
-Commands live in the [README](../README.md#local-development) and [tests/README.md](../tests/README.md); CI is defined by `.github/workflows/test.yml`, which owns the checks, Python versions, coverage gate and path filters.
+Commands live in the [README](../README.md#local-development) and [tests/README.md](../tests/README.md); CI is defined by `.github/workflows/ci.yml`, which owns the checks, Python versions, coverage gate and path filters.
 
 ---
 

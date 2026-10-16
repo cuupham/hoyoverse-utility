@@ -23,7 +23,7 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 ```
 
-Checks and test commands match [`.github/workflows/test.yml`](.github/workflows/test.yml); tests use mock data, no cookie required.
+Checks and test commands match [`.github/workflows/ci.yml`](.github/workflows/ci.yml); tests use mock data, no cookie required.
 
 Live API-health tests additionally need real cookies — set `ACC_1` in your environment or create `tests/auth/.env.ps1`. Never commit yours (see [`tests/auth/cookies.ps1.example`](tests/auth/cookies.ps1.example)).
 

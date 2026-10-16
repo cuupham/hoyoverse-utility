@@ -1,4 +1,4 @@
-name: HoYo Flow
+name: Daily Check-in
 
 on:
   schedule:
@@ -6,13 +6,17 @@ on:
     - cron: '45 21 * * *'
   workflow_dispatch:  # Cho phép chạy manual
 
-# Chỉ chạy 1 instance tại 1 thời điểm
+permissions:
+  contents: read
+
+# Một instance tại một thời điểm; run mới xếp hàng chờ, không hủy run đang
+# điểm danh/redeem dở (thao tác không idempotent).
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  core_flow:
+  check-in:
     runs-on: ubuntu-latest
     environment: live
     timeout-minutes: 30
@@ -39,5 +43,5 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run script
+      - name: Run check-in and redeem
         run: python -m src.main

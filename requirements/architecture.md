@@ -48,7 +48,7 @@ Models do not import HTTP builders or generate requests. `GameInfo` holds provid
 
 Game metadata and region values live in `game.py`; reverse mappings derive from them. Endpoint groups in `config.py` are typed. Browser headers are generated once from a Windows desktop Chrome profile that agrees with RPC system fields and client hints. `parse_provider_envelope()` alone validates provider envelopes; endpoint wrappers validate their own inner payloads.
 
-Runtime dependencies are pinned in [requirements.txt](../requirements.txt). [requirements-dev.txt](../requirements-dev.txt) references that manifest and adds testing/quality tools. [pyproject.toml](../pyproject.toml) owns format, lint and strict source typing settings. The [test workflow](../.github/workflows/test.yml) checks Python 3.10 and 3.13.
+Runtime dependencies are pinned in [requirements.txt](../requirements.txt). [requirements-dev.txt](../requirements-dev.txt) references that manifest and adds testing/quality tools. [pyproject.toml](../pyproject.toml) owns format, lint and strict source typing settings. The [CI workflow](../.github/workflows/ci.yml) checks Python 3.10 and 3.13.
 
 ## Local verification tools and privacy
 
@@ -56,4 +56,4 @@ Runtime dependencies are pinned in [requirements.txt](../requirements.txt). [req
 
 Default mocked tests do not load credentials. Live API health tests and the diagnostic script perform read operations only. Diagnostics use production wrappers and show account aliases, game/region names and check-in state; they do not print cookies, raw account IDs, nicknames or UIDs. Do not commit credential files or share private credentials in logs/issues.
 
-The [daily workflow](../.github/workflows/hoyo-flow.yml) explicitly exposes ACC_1 through ACC_4. Local environment discovery supports all nonempty ACC_* names. Workflow manifests, not copied documentation snippets, own the executable configuration.
+The [daily workflow](../.github/workflows/daily-check-in.yml) explicitly exposes ACC_1 through ACC_4. Local environment discovery supports all nonempty ACC_* names. Workflow manifests, not copied documentation snippets, own the executable configuration.

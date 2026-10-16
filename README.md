@@ -39,7 +39,7 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
    2. DevTools (F12) → *Network* tab → find request `getGameRecordCard?uid=...`
    3. Copy the full `Cookie:` header value
 3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2` through `ACC_4` for more accounts. Local runs read all nonempty `ACC_*` variables; the supplied workflow explicitly exposes four secrets.
-4. **Run:** *Actions* → *HoYo Flow* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**.
+4. **Run:** *Actions* → *Daily Check-in* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**.
 5. **Check the report tables** in the run log — done in seconds.
 
 > 🔐 Your cookie lives only in encrypted [GitHub Secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) and is sent exclusively to official HoYoLAB API endpoints. Never paste cookies into issues or logs.
@@ -163,8 +163,8 @@ The report keeps the provider message and retcode for that code and region. Nume
 ```
 hoyoverse-utility/
 ├── .github/workflows/
-│   ├── hoyo-flow.yml          # Daily-run workflow
-│   └── test.yml               # CI: tests + coverage gate
+│   ├── daily-check-in.yml     # Daily-run workflow
+│   └── ci.yml                 # CI: format, lint, types, tests + coverage gate
 ├── src/
 │   ├── main.py                # Entry point / orchestration
 │   ├── config.py              # Central config

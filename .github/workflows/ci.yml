@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
   push:
@@ -22,12 +22,15 @@ on:
       - 'pytest.ini'
       - '.github/workflows/**'
 
+permissions:
+  contents: read
+
 concurrency:
-  group: tests-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
