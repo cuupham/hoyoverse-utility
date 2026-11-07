@@ -441,6 +441,52 @@ class TestValidateAccountsOutput:
         assert lines[2].split() == ["ACC_2", STATUS_ERROR]
         assert result.errors == ["ACC_2 · expired"]
 
+    @pytest.mark.asyncio
+    async def test_transient_check_failure_keeps_account_but_reports_error(
+        self, mock_session, mock_accounts
+    ):
+        checks = [
+            {"valid": True, "email_mask": "v****@example.com", "error": None},
+            {
+                "valid": False,
+                "status": "check_failed",
+                "email_mask": None,
+                "error": "timeout",
+            },
+        ]
+        lines = []
+        with (
+            patch("src.main.check_cookie", side_effect=checks),
+            patch("src.main.log_print", side_effect=lambda m="": lines.append(m)),
+        ):
+            result = await main_module.validate_accounts(mock_session, mock_accounts)
+
+        assert lines[0] == "ACCOUNTS  1/2 hợp lệ"
+        assert lines[2].split() == ["ACC_2", "CHƯA", "XÁC", "MINH"]
+        assert [acc.name for acc in result.valid_accounts] == ["ACC_1", "ACC_2"]
+        assert result.errors == ["ACC_2 · timeout"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_credentials_are_still_excluded(
+        self, mock_session, mock_accounts
+    ):
+        checks = [
+            {"valid": True, "email_mask": "v****@example.com", "error": None},
+            {
+                "valid": False,
+                "status": "invalid_credentials",
+                "email_mask": None,
+                "error": "login required",
+            },
+        ]
+        with (
+            patch("src.main.check_cookie", side_effect=checks),
+            patch("src.main.log_print"),
+        ):
+            result = await main_module.validate_accounts(mock_session, mock_accounts)
+
+        assert [acc.name for acc in result.valid_accounts] == ["ACC_1"]
+
 
 class TestMainReporting:
     @pytest.mark.asyncio

@@ -71,7 +71,9 @@ URLS: ApiUrls = {
 
 # ==================== SETTINGS ====================
 SEMAPHORE_LIMIT = 20  # Max concurrent requests
-REDEEM_DELAY_SECONDS = 5  # Seconds between redeem codes
+REDEEM_DELAY_SECONDS = (
+    7  # Seconds between redeem codes (provider cooldown ~5s + margin)
+)
 REQUEST_TIMEOUT_SECONDS = 30  # Maximum timeout for an individual attempt
 # Floor timeout per attempt (prevent premature timeouts)
 MIN_ATTEMPT_TIMEOUT_SECONDS = 15
@@ -136,6 +138,7 @@ SYSTEM_MESSAGES = {
 
 # ==================== STATUS LABELS ====================
 STATUS_ERROR = "LỖI"
+STATUS_UNVERIFIED = "CHƯA XÁC MINH"  # cookie check failed transiently
 VERDICT_OK = "THÀNH CÔNG"
 VERDICT_FAILED = "THẤT BẠI"
 

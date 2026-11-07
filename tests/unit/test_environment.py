@@ -3,7 +3,7 @@
 import os
 from unittest.mock import patch
 
-from src.utils.environment import get_accounts_from_env
+from src.utils.environment import account_sort_key, get_accounts_from_env
 
 
 class TestEnvironmentAccounts:
@@ -20,3 +20,14 @@ class TestEnvironmentAccounts:
             accounts = get_accounts_from_env()
             assert len(accounts) == 2
             assert "ACC_WHITESPACE" not in accounts
+
+
+def test_account_sort_key_orders_numbers_naturally():
+    names = ["ACC_10", "ACC_2", "ACC_1", "ACC_B", "ACC_a"]
+    assert sorted(names, key=account_sort_key) == [
+        "ACC_1",
+        "ACC_2",
+        "ACC_10",
+        "ACC_a",
+        "ACC_B",
+    ]

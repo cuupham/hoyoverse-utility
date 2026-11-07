@@ -11,7 +11,7 @@ The executable contracts live in [results.py](../src/models/results.py):
 - `RedemptionData`: usable codes, per-account UID mappings, and unrecovered fetch errors.
 - `AccountValidationResult`: usable accounts plus account validation failures.
 
-`message` and `retcode` preserve provider detail. Numeric redemption retcodes are not a published per-game contract in this project; they must not infer global expiry or region eligibility. The same rejected code remains eligible for an independent request in another region.
+`message` and `retcode` preserve provider detail. Numeric redemption retcodes are not a published per-game contract in this project; they must not infer global expiry or region eligibility. The same rejected code remains eligible for an independent request in another region. `REDEEM_DELAY_SECONDS` is set above the provider's ~5 second per-redeem cooldown so consecutive codes in a region do not trip it.
 
 ## Exit status
 
@@ -21,13 +21,14 @@ The executable contracts live in [results.py](../src/models/results.py):
 |---|---|
 | No configured/usable accounts | Exit 1 |
 | Any malformed account or failed account validation, including partial failures | Exit 1; valid accounts continue |
+| Cookie check could not complete (`check_failed`: timeout, network, 5xx) | Exit 1; the account is still checked in and redeemed, since sign/redeem calls surface a truly dead cookie. Only `invalid_credentials` and malformed cookies exclude an account |
 | Unrecovered code/UID fetch error | Exit 1; usable data remains available |
 | Check-in transport/schema/provider failure | Exit 1 |
 | Check-in challenge requiring user action | Exit 1; no challenge bypass |
 | Known check-in no-character response | Report separately; does not fail an otherwise healthy run |
 | Already claimed or newly claimed check-in | Success |
 | Redemption transport/schema failure | Exit 1; independent codes/regions continue |
-| Provider-level redemption rejection | Preserve message/retcode; does not fail an otherwise healthy run |
+| Provider-level redemption rejection (including a cooldown rejection) | Preserve message/retcode; does not fail an otherwise healthy run |
 | Codes exist but no account has any matching code/game/UID combination | Report the condition; does not fail an otherwise healthy run |
 | Some accounts/games have no character, while other combinations are eligible | Skip the unmatched combinations; redeem eligible ones normally |
 | Healthy reads with no available codes | Exit 0 |

@@ -11,7 +11,7 @@ from src.api.checkin import check_cookie, run_checkin_for_account
 from src.api.client import create_session
 from src.api.redeem_exchange import run_redeem_for_account
 from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
-from src.config import STATUS_ERROR, SYSTEM_MESSAGES
+from src.config import STATUS_ERROR, STATUS_UNVERIFIED, SYSTEM_MESSAGES
 from src.models.account import Account
 from src.models.game import Game
 from src.models.results import (
@@ -31,7 +31,7 @@ from src.utils.display import (
     display_redeem_results,
     display_result,
 )
-from src.utils.environment import get_accounts_from_env
+from src.utils.environment import account_sort_key, get_accounts_from_env
 from src.utils.logger import ctx, log_error, log_print
 from src.utils.summary import write_job_summary
 from src.utils.timekeeping import TZ
@@ -54,27 +54,36 @@ async def validate_accounts(
     session: aiohttp.ClientSession,
     accounts: list[Account],
 ) -> AccountValidationResult:
-    """Validate tất cả cookies song song."""
+    """Validate tất cả cookies song song.
+
+    Cookie hỏng thật (invalid_credentials) bị loại. Khi chỉ không kiểm tra được
+    (mạng/5xx/timeout) account vẫn được chạy tiếp: check-in tự phát hiện cookie
+    hỏng, còn bỏ qua sẽ làm mất cả ngày điểm danh. Lỗi vẫn được báo (exit 1).
+    """
     tasks = [check_cookie(session, acc) for acc in accounts]
     results = await asyncio.gather(*tasks)
 
     valid_accounts = []
+    verified = 0
     errors = []
     name_w = max(len(acc.name) for acc in accounts) + 2
     lines = []
     for acc, result in zip(accounts, results):
         if result["valid"]:
             valid_accounts.append(acc)
+            verified += 1
             detail = result["email_mask"]
         else:
             errors.append(f"{acc.name} · {result['error']}")
-            detail = STATUS_ERROR
+            if result.get("status") == "check_failed":
+                valid_accounts.append(acc)
+                detail = STATUS_UNVERIFIED
+            else:
+                detail = STATUS_ERROR
         lines.append(f"{INDENT}{acc.name:<{name_w}}{detail}")
 
     log_print(
-        SYSTEM_MESSAGES["SECTION_ACCOUNTS"].format(
-            valid=len(valid_accounts), total=len(accounts)
-        )
+        SYSTEM_MESSAGES["SECTION_ACCOUNTS"].format(valid=verified, total=len(accounts))
     )
     for line in lines:
         log_print(line)
@@ -214,7 +223,9 @@ async def main() -> None:
 
     accounts: list[Account] = []
     failures: list[str] = []
-    for name, cookie_str in sorted(env_accounts.items()):
+    for name, cookie_str in sorted(
+        env_accounts.items(), key=lambda item: account_sort_key(item[0])
+    ):
         try:
             accounts.append(Account.from_cookie_string(name, cookie_str))
         except ValueError as error:
