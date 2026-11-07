@@ -31,8 +31,26 @@ class TestBuildSummary:
 
     def test_failures_are_listed(self):
         summary = build_summary(RESULTS, ["ACC_1 · boom"], 1.0)
-        assert "- ACC_1 · boom" in summary
+        assert "- `ACC_1 · boom`" in summary
         assert VERDICT_FAILED in summary.splitlines()[0]
+
+    def test_provider_text_is_not_parsed_as_markdown(self):
+        hostile = (
+            "[x](https://evil.example) ![i](https://evil.example/p.png) <img src=x>"
+        )
+        summary = build_summary(RESULTS, [f"ACC_1 · {hostile}"], 1.0)
+        line = next(item for item in summary.splitlines() if item.startswith("- "))
+        # The whole failure is one code span, so nothing inside it is rendered.
+        assert line == f"- `ACC_1 · {hostile}`"
+
+    def test_backticks_in_failures_cannot_close_the_code_span(self):
+        summary = build_summary(RESULTS, ["boom `` ``` [x](https://evil.example)"], 1.0)
+        line = next(item for item in summary.splitlines() if item.startswith("- "))
+        assert line.startswith("- ````") and line.endswith("````")
+
+    def test_failure_starting_or_ending_with_backtick_is_padded(self):
+        summary = build_summary(RESULTS, ["`edge`"], 1.0)
+        assert "- `` `edge` ``" in summary
 
     def test_no_failure_section_when_clean(self):
         assert "\n- " not in build_summary(RESULTS, [], 1.0)
