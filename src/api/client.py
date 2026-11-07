@@ -25,6 +25,7 @@ from src.config import (
     SYSTEM_MESSAGES,
 )
 from src.models.results import HttpCallResult, ProviderResult
+from src.utils.sanitize import sanitize_remote_text
 
 # HTTP status codes that should trigger retry (transient server errors)
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
@@ -105,11 +106,10 @@ def parse_provider_envelope(
     retcode = envelope["retcode"]
     if retcode != 0:
         message = envelope.get("message")
+        safe_message = sanitize_remote_text(message) if isinstance(message, str) else ""
         return ProviderResult(
             {},
-            error=(
-                message if isinstance(message, str) and message else f"Error {retcode}"
-            ),
+            error=safe_message or f"Error {retcode}",
             retcode=retcode,
             error_kind="provider",
         )

@@ -13,6 +13,7 @@ from src.config import PAGE_NAME_HOME, SYSTEM_MESSAGES, URLS
 from src.models.account import Account
 from src.models.game import GAME_BY_BIZ, REGION_CODE_BY_VALUE, Game
 from src.models.results import ProviderResult
+from src.utils.sanitize import has_unsafe_chars
 
 
 async def fetch_cdkeys(
@@ -88,6 +89,14 @@ async def fetch_cdkeys(
                     error_kind="invalid_response",
                 )
             code = bonus.get("exchange_code", "").strip()
+            # A code is a single printable token; anything else would reach the logs.
+            if has_unsafe_chars(code) or any(char.isspace() for char in code):
+                return ProviderResult(
+                    [],
+                    error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],
+                    retcode=0,
+                    error_kind="invalid_response",
+                )
             if code and code not in codes:
                 codes.append(code)
     return ProviderResult(codes, retcode=0)
@@ -146,7 +155,11 @@ async def fetch_all_uids(
 
         region = role.get("region")
         uid = role.get("game_uid")
-        if not isinstance(region, str) or not isinstance(uid, str) or not uid.isdigit():
+        if (
+            not isinstance(region, str)
+            or not isinstance(uid, str)
+            or not (uid.isascii() and uid.isdigit())
+        ):
             return ProviderResult(
                 {game: {} for game in Game},
                 error=SYSTEM_MESSAGES["ERR_INVALID_RESPONSE"],

@@ -35,6 +35,7 @@ from src.models.results import (
     CookieValidationResult,
     ErrorKind,
 )
+from src.utils.sanitize import sanitize_remote_text
 
 
 def _already_claimed_result(info: CheckinInfoResult) -> CheckinResult:
@@ -88,8 +89,9 @@ async def check_cookie(
     result = await request_json(session, URLS["check_cookie"], headers)
 
     parsed = parse_provider_envelope(result)
-    email = parsed.data.get("email_mask")
-    if parsed.success and isinstance(email, str) and email:
+    raw_email = parsed.data.get("email_mask")
+    email = sanitize_remote_text(raw_email) if isinstance(raw_email, str) else ""
+    if parsed.success and email:
         return CookieValidationResult(
             valid=True, status="valid", email_mask=email, error=None
         )
