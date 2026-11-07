@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Runtime + dev dependencies are pinned exactly; Dependabot proposes bumps.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-tools:
+        patterns: [pytest*, black, mypy, ruff]
+
+  # Actions are pinned by commit SHA; Dependabot updates the SHA and the version comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

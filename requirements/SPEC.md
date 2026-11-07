@@ -90,7 +90,7 @@ mi18nLang=en-us; _HYVUUID=xxx; _MHYUUID=xxx; cookie_token_v2=xxx; account_mid_v2
 
 ## 3. GitHub Actions
 
-[The workflow manifest](../.github/workflows/daily-check-in.yml) owns schedule, pinned actions, secret allowlist, concurrency, Python version and execution command. Its cron runs at 04:45 UTC+7. [The CI workflow](../.github/workflows/ci.yml) owns the Python 3.10/3.13 verification matrix. No copied YAML implementation is maintained here.
+[The workflow manifest](../.github/workflows/daily-check-in.yml) owns schedule, pinned actions, secret allowlist, concurrency, Python version and execution command. Its cron runs at 04:45 UTC+7. [The CI workflow](../.github/workflows/ci.yml) owns the Python 3.11/3.13 verification matrix. No copied YAML implementation is maintained here.
 
 ## 4. Lưu ý quan trọng
 

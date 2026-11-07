@@ -10,7 +10,7 @@ Automated daily check-in & redeem codes for **Genshin Impact**, **Honkai: Star R
 
 If this saves you time, a ⭐ star helps others find it.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -39,8 +39,11 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
    2. DevTools (F12) → *Network* tab → find request `getGameRecordCard?uid=...`
    3. Copy the full `Cookie:` header value
 3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2` through `ACC_4` for more accounts. Local runs read all nonempty `ACC_*` variables; the supplied workflow explicitly exposes four secrets.
-4. **Run:** *Actions* → *Daily Check-in* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**.
-5. **Check the report tables** in the run log — done in seconds.
+4. **Enable workflows:** GitHub disables workflows on a fresh fork. Open the *Actions* tab and click *I understand my workflows, go ahead and enable them*.
+5. **Run:** *Actions* → *Daily Check-in* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**. The job uses an Actions environment named `live`; GitHub creates it on first run, and repository-level secrets from step 3 are still available to it.
+6. **Check the report tables** in the run log — done in seconds.
+
+> ⏰ **Keep the schedule alive:** GitHub automatically disables scheduled workflows after 60 days without repository activity, and scheduled runs may start several minutes late. If the daily run stops appearing, re-enable it under *Actions* → *Daily Check-in* → *Enable workflow* (a manual run or any commit also resets the timer). A failed run emails you through GitHub's normal notifications, so leave *Settings → Notifications → Actions* on.
 
 > 🔐 Your cookie lives only in encrypted [GitHub Secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions) and is sent exclusively to official HoYoLAB API endpoints. Never paste cookies into issues or logs.
 
@@ -196,7 +199,9 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Optional: run against real accounts locally
-# copy tests/auth/cookies.ps1.example -> tests/auth/.env.ps1, fill in cookies
+# Linux/Mac: copy tests/auth/cookies.env.example -> tests/auth/.env.sh, fill in cookies,
+#            then: set -a; . tests/auth/.env.sh; set +a   (and skip the .ps1 line below)
+# Windows:   copy tests/auth/cookies.ps1.example -> tests/auth/.env.ps1, fill in cookies
 .\tests\auth\.env.ps1
 python -m src.main
 

@@ -48,7 +48,7 @@ Models do not import HTTP builders or generate requests. `GameInfo` holds provid
 
 Game metadata and region values live in `game.py`; reverse mappings derive from them. Endpoint groups in `config.py` are typed. Browser headers are generated once from a Windows desktop Chrome profile that agrees with RPC system fields and client hints. `parse_provider_envelope()` alone validates provider envelopes; endpoint wrappers validate their own inner payloads.
 
-Runtime dependencies are pinned in [requirements.txt](../requirements.txt). [requirements-dev.txt](../requirements-dev.txt) references that manifest and adds testing/quality tools. [pyproject.toml](../pyproject.toml) owns format, lint and strict source typing settings. The [CI workflow](../.github/workflows/ci.yml) checks Python 3.10 and 3.13.
+Runtime dependencies are pinned in [requirements.txt](../requirements.txt). [requirements-dev.txt](../requirements-dev.txt) references that manifest and adds testing/quality tools. [pyproject.toml](../pyproject.toml) owns format, lint and strict source typing settings. The [CI workflow](../.github/workflows/ci.yml) checks Python 3.11 and 3.13.
 
 ## Local verification tools and privacy
 

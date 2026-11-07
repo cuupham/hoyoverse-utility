@@ -25,19 +25,19 @@ pip install -r requirements-dev.txt
 
 Checks and test commands match [`.github/workflows/ci.yml`](.github/workflows/ci.yml); tests use mock data, no cookie required.
 
-Live API-health tests additionally need real cookies — set `ACC_1` in your environment or create `tests/auth/.env.ps1`. Never commit yours (see [`tests/auth/cookies.ps1.example`](tests/auth/cookies.ps1.example)).
+Live API-health tests additionally need real cookies — set `ACC_1` in your environment or create `tests/auth/.env.ps1` (Windows; read automatically) or `tests/auth/.env.sh` (Linux/Mac; source it into your shell first). Never commit yours (see [`cookies.ps1.example`](tests/auth/cookies.ps1.example) and [`cookies.env.example`](tests/auth/cookies.env.example)).
 
 ## Code style
 
 - Format with **black** (`pip install black; black src tests`)
-- Runtime code must pass strict source typechecking; keep required TypedDict fields compatible with Python 3.10.
+- Runtime code must pass strict source typechecking; keep required TypedDict fields compatible with Python 3.11.
 - Keep modules small and focused. Game metadata belongs in `src/models/game.py`, shared results in `src/models/results.py`, request construction in `src/api/request_builder.py`, and settings/messages in `src/config.py`.
 - Runtime dependency pins belong only in `requirements.txt`; `requirements-dev.txt` references that file.
 - Keep provider wire keys and ACC_* names stable; internal names use snake_case. Tests should describe the behavior they assert, not coverage targets or historical audit labels.
 
 ## Pull requests
 
-Use the PR template. CI must pass formatting, lint, strict source typing, tests and the coverage gate on Python 3.10 and 3.13. One logical change per PR keeps review fast.
+Use the PR template. CI must pass formatting, lint, strict source typing, tests and the coverage gate on Python 3.11 and 3.13. One logical change per PR keeps review fast.
 
 ## Reporting issues
 

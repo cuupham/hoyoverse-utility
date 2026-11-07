@@ -1,4 +1,4 @@
-"""Shared transport, provider and application outcomes (Python 3.10 compatible)."""
+"""Shared transport, provider and application outcomes (Python 3.11 compatible)."""
 
 from __future__ import annotations
 

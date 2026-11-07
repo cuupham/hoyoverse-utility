@@ -213,3 +213,4 @@ __marimo__/
 .agent/
 .brain/
 docs/
+.env.sh

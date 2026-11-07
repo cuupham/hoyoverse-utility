@@ -14,7 +14,7 @@ The test suite is split by purpose:
 
 Do not commit `.env.ps1` or cookie values. `tests/support/accounts.py` owns local test/debug loading; `Account.from_cookie_string()` owns cookie validation. Loading is lazy, so default mocked tests do not read credentials. Invalid configured credentials fail explicitly instead of silently falling back to a different account.
 
-Install developer tools with `pip install -r requirements-dev.txt`. Runtime pins are inherited from the root runtime manifest. CI also runs Black, Ruff and strict source mypy on Python 3.10/3.13.
+Install developer tools with `pip install -r requirements-dev.txt`. Runtime pins are inherited from the root runtime manifest. CI also runs Black, Ruff and strict source mypy on Python 3.11/3.13.
 
 Run mocked tests without credentials:
 
