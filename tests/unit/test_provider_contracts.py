@@ -10,9 +10,16 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import aiohttp
 import pytest
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from src.api.checkin import check_cookie, do_checkin
-from src.api.client import _retry_after, parse_provider_envelope, request_json
+from src.api.client import (
+    _retry_after,
+    create_session,
+    parse_provider_envelope,
+    request_json,
+)
 from src.api.redeem_exchange import exchange_cdkey, redeem_codes_for_region
 from src.api.redeem_fetch import fetch_all_uids, fetch_cdkeys
 from src.config import STATUS_ERROR, URLS
@@ -128,6 +135,79 @@ async def test_mutating_request_not_retried_after_timeout(method, retry):
         )
     assert result["error"] == "timeout"
     assert session.request.call_count == 1
+
+
+async def test_redeem_disconnect_sends_once_and_reports_unknown(
+    mock_account, monkeypatch
+):
+    received = []
+
+    async def redeem(request):
+        received.append(request.query["cdkey"])
+        if len(received) == 1:
+            request.transport.close()
+        return web.json_response({"retcode": 0, "data": {}})
+
+    app = web.Application()
+    app.router.add_get("/redeem", redeem)
+    async with TestServer(app) as server, create_session() as session:
+        monkeypatch.setitem(URLS["redeem"], "gs", str(server.make_url("/redeem")))
+        result = await exchange_cdkey(
+            session, mock_account, Game.GENSHIN, "asia", "000000", "CODE"
+        )
+
+    assert received == ["CODE"]
+    assert result["success"] is False
+    assert result["error_kind"] == "network"
+    assert result["outcome_unknown"] is True
+    assert result["message"].startswith("Chưa xác định")
+
+
+@pytest.mark.parametrize(
+    "status,outcome_unknown", [(307, True), (429, False), (502, True)]
+)
+async def test_redeem_classifies_unconfirmed_http_responses(
+    mock_account, status, outcome_unknown
+):
+    response = {
+        "success": False,
+        "status": status,
+        "error": "http_error",
+        "message": f"HTTP {status}",
+    }
+    with patch(
+        "src.api.redeem_exchange.request_json", new=AsyncMock(return_value=response)
+    ):
+        result = await exchange_cdkey(
+            None, mock_account, Game.GENSHIN, "asia", "000000", "CODE"
+        )
+
+    assert result["success"] is False
+    assert result.get("outcome_unknown", False) is outcome_unknown
+    assert result["error_kind"] == "http_error"
+
+
+@pytest.mark.parametrize("method", ["GET", "POST"])
+async def test_mutating_requests_do_not_follow_redirects(method):
+    received = []
+
+    async def mutate(request):
+        received.append(request.path)
+        if request.path == "/first":
+            raise web.HTTPTemporaryRedirect(location="/second")
+        return web.json_response({"retcode": 0, "data": {}})
+
+    app = web.Application()
+    app.router.add_route(method, "/first", mutate)
+    app.router.add_route(method, "/second", mutate)
+    async with TestServer(app) as server, create_session() as session:
+        result = await request_json(
+            session, str(server.make_url("/first")), {}, method=method, retry=False
+        )
+
+    assert received == ["/first"]
+    assert result["status"] == 307
+    assert result["success"] is False
 
 
 async def test_http_error_not_treated_as_provider_success():

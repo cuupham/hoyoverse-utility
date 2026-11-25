@@ -105,6 +105,7 @@ class CheckinResult(_CheckinRequired, total=False):
 class RedeemResult(_ActionRequired, total=False):
     retcode: int
     error_kind: ErrorKind | None
+    outcome_unknown: bool
 
 
 CheckinResults = dict[str, dict[Game, CheckinResult]]

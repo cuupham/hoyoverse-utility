@@ -72,7 +72,7 @@ secrets:
 
 ### 2.2. Workflow environment variables
 
-The [daily workflow](../.github/workflows/daily-check-in.yml) explicitly exposes ACC_1 through ACC_4 from repository/environment secrets. It does not export every secret through toJSON. Add a workflow mapping explicitly if more accounts are required in Actions; local runs discover all nonempty ACC_* values.
+The [daily workflow](../.github/workflows/daily-check-in.yml) exposes ACC_1 through ACC_4 only to the CLI step. Store these as secrets in the `live` environment and restrict that environment to the default branch. Add a workflow mapping explicitly if more accounts are required in Actions. Local runs discover all nonempty ACC_* values.
 
 ### 2.3. Cookie Format
 

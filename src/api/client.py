@@ -12,6 +12,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any, Mapping
 
 import aiohttp
+from aiohttp import ClientHandlerType
 
 from src.config import (
     CONNECT_TIMEOUT_SECONDS,
@@ -139,6 +140,16 @@ def _retry_after(value: str | None, default: float) -> float:
         return default
 
 
+async def _prevent_connection_replay(
+    request: aiohttp.ClientRequest, handler: ClientHandlerType
+) -> aiohttp.ClientResponse:
+    try:
+        return await handler(request)
+    except (aiohttp.ClientOSError, aiohttp.ServerDisconnectedError) as error:
+        # aiohttp retries these subclasses for GET, including our mutating GET.
+        raise aiohttp.ClientConnectionError from error
+
+
 async def request_json(
     session: aiohttp.ClientSession,
     url: str,
@@ -160,6 +171,7 @@ async def request_json(
         json_data: JSON body (for POST)
         method: HTTP method
         max_attempts: Total attempts, including the initial request
+        retry: Enable retries for a safe read. Mutating GET callers pass False.
 
     Returns:
         Dict với format {"success": bool, "data": ... hoặc "error": ..., "message": ...}
@@ -172,8 +184,11 @@ async def request_json(
     if json_data:
         kwargs["json"] = json_data
 
-    # Some HoYoLAB GET routes mutate state; their callers explicitly disable retry.
-    attempts = max_attempts if retry and method.upper() in {"GET", "HEAD"} else 1
+    retryable_read = retry and method.upper() in {"GET", "HEAD"}
+    attempts = max_attempts if retryable_read else 1
+    if not retryable_read:
+        kwargs["allow_redirects"] = False
+        kwargs["middlewares"] = (_prevent_connection_replay,)
     failure: HttpCallResult = {
         "success": False,
         "error": "unknown",

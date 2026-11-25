@@ -109,6 +109,7 @@ RETCODE_ALREADY_SIGNED = -5003
 SYSTEM_MESSAGES = {
     "REQUEST_FAILED": "Request failed",
     "REDEEM_SUCCESS": "Thành công",
+    "REDEEM_OUTCOME_UNKNOWN": "Chưa xác định",
     "REDEEM_UNKNOWN_REGION": "Unknown region: {region_code}",
     "CHECKIN_SUCCESS": "Điểm danh thành công",
     "CHECKIN_ALREADY": "Đã điểm danh trước đó",
