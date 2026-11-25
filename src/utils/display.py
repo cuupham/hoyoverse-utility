@@ -131,6 +131,8 @@ def _short_redeem_status(res: RedeemResult) -> str:
     """Rút gọn status redeem cho table display."""
     if res.get("success"):
         return SYSTEM_MESSAGES["REDEEM_SUCCESS"]
+    if res.get("outcome_unknown"):
+        return SYSTEM_MESSAGES["REDEEM_OUTCOME_UNKNOWN"]
     retcode = res.get("retcode")
     prefix = f"[{retcode}] " if retcode is not None else ""
     return f"{STATUS_ERROR} {prefix}{res.get('message', 'Error')}"

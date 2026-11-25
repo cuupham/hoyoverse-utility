@@ -69,11 +69,25 @@ async def exchange_cdkey(
     parsed = parse_provider_envelope(result, allow_null_data=True)
     if parsed.success:
         return RedeemResult(success=True, message=SYSTEM_MESSAGES["REDEEM_SUCCESS"])
+    message = parsed.error or SYSTEM_MESSAGES["REQUEST_FAILED"]
+    status = result.get("status", 0)
     failed = RedeemResult(
         success=False,
-        message=parsed.error or SYSTEM_MESSAGES["REQUEST_FAILED"],
+        message=message,
         error_kind=parsed.error_kind,
     )
+    if parsed.error_kind in {
+        "network",
+        "timeout",
+        "invalid_json",
+        "invalid_response",
+        "unknown",
+    } or (
+        parsed.error_kind == "http_error"
+        and (300 <= status < 400 or 500 <= status < 600)
+    ):
+        failed["outcome_unknown"] = True
+        failed["message"] = f"{SYSTEM_MESSAGES['REDEEM_OUTCOME_UNKNOWN']} · {message}"
     if parsed.retcode is not None:
         failed["retcode"] = parsed.retcode
     return failed
