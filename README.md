@@ -38,9 +38,9 @@ The best-known helper in this niche (`y1ndan/genshin-impact-helper`) was removed
    1. Log in at [HoYoLab](https://www.hoyolab.com), open avatar → *Personal Homepage*
    2. DevTools (F12) → *Network* tab → find request `getGameRecordCard?uid=...`
    3. Copy the full `Cookie:` header value
-3. **Add the secret:** in your fork → *Settings* → *Secrets and variables* → *Actions* → new repository secret named `ACC_1`, paste the cookie. Repeat with `ACC_2` through `ACC_4` for more accounts. Local runs read all nonempty `ACC_*` variables; the supplied workflow explicitly exposes four secrets.
+3. **Set up the live environment.** In your fork, open *Settings* → *Environments* and create `live`. Under *Deployment branches and tags*, allow only the default branch (normally `main`). Add the cookie as an environment secret named `ACC_1`. Repeat with `ACC_2` through `ACC_4` for more accounts. If you previously added repository-level account secrets, remove those copies after verifying the environment secrets work.
 4. **Enable workflows:** GitHub disables workflows on a fresh fork. Open the *Actions* tab and click *I understand my workflows, go ahead and enable them*.
-5. **Run:** *Actions* → *Daily Check-in* → *Run workflow*. After that it runs automatically every day at **04:45 (UTC+7)**. The job uses an Actions environment named `live`; GitHub creates it on first run, and repository-level secrets from step 3 are still available to it.
+5. **Run:** *Actions* → *Daily Check-in* → *Run workflow* on the default branch. The workflow is scheduled for **04:45 (UTC+7)** each day.
 6. **Check the report tables** in the run log — done in seconds.
 
 > ⏰ **Keep the schedule alive:** GitHub automatically disables scheduled workflows after 60 days without repository activity, and scheduled runs may start several minutes late. If the daily run stops appearing, re-enable it under *Actions* → *Daily Check-in* → *Enable workflow* (a manual run or any commit also resets the timer). A failed run emails you through GitHub's normal notifications, so leave *Settings → Notifications → Actions* on.

@@ -8,6 +8,7 @@ The executable contracts live in [results.py](../src/models/results.py):
 - `ProviderResult.success`: envelope and endpoint-specific data are usable. Empty successful collections differ from errors. `error_kind` preserves transport/schema/provider provenance.
 - `CookieValidationResult.status`: valid, invalid_credentials, or check_failed. A timeout is a failed validation attempt, not proof that credentials are invalid.
 - `CheckinResult.status`: claimed, already_claimed, no_character, challenge, or failed. `action_required` is set for a provider challenge.
+- `RedeemResult.outcome_unknown` marks an attempt whose response could not confirm whether the write took effect.
 - `RedemptionData`: usable codes, per-account UID mappings, and unrecovered fetch errors.
 - `AccountValidationResult`: usable accounts plus account validation failures.
 
@@ -28,6 +29,7 @@ The executable contracts live in [results.py](../src/models/results.py):
 | Known check-in no-character response | Report separately; does not fail an otherwise healthy run |
 | Already claimed or newly claimed check-in | Success |
 | Redemption transport/schema failure | Exit 1; independent codes/regions continue |
+| Redemption outcome unknown | Report separately and exit 1 after independent work finishes |
 | Provider-level redemption rejection (including a cooldown rejection) | Preserve message/retcode; does not fail an otherwise healthy run |
 | Codes exist but no account has any matching code/game/UID combination | Report the condition; does not fail an otherwise healthy run |
 | Some accounts/games have no character, while other combinations are eligible | Skip the unmatched combinations; redeem eligible ones normally |
@@ -44,7 +46,7 @@ Sign POST is never automatically retried. Timeout/network/HTTP/JSON/schema failu
 [client.py](../src/api/client.py) owns transport behavior; [config.py](../src/config.py) owns limits.
 
 - MAX_ATTEMPTS includes the first attempt and must be at least one.
-- Automatic retries apply only to safe GET/HEAD requests when retry is enabled. The mutating redeem GET explicitly disables retry.
+- Automatic retries apply only to safe GET/HEAD requests when retry is enabled. Sign POST and the mutating redeem GET disable redirects and connection replay. An unconfirmed redeem stays unknown without resubmitting that request.
 - HTTP 429/500/502/503/504 and connection/payload/timeout failures use bounded retry behavior.
 - Retry-After seconds or HTTP dates take precedence over default backoff. A delay exceeding REQUEST_TIMEOUT_SECONDS returns the failure instead of retrying early or waiting indefinitely.
 - Timeouts bound individual attempts, not the entire sequence including backoff. The existing per-attempt timeout floor is preserved.
